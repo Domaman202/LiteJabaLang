@@ -1,10 +1,16 @@
 package ru.DmN.lj.compiler;
 
-public class GrammaticalException extends Exception {
-    public final ExprPosition pos;
+import org.antlr.v4.runtime.ParserRuleContext;
 
-    public GrammaticalException(ExprPosition pos, String msg) {
+public class GrammaticalException extends RuntimeException {
+    public final ParserRuleContext ctx;
+
+    public GrammaticalException(ParserRuleContext ctx) {
+        this.ctx = ctx;
+    }
+
+    public GrammaticalException(ParserRuleContext ctx, String msg) {
         super(msg);
-        this.pos = pos;
+        this.ctx = ctx;
     }
 }

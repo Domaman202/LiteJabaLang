@@ -1,19 +1,17 @@
 package ru.DmN.lj.compiler;
 
+import org.antlr.v4.runtime.ParserRuleContext;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public class Expression {
-    public ExprPosition pos;
-    public Type type;
+    public final ParserRuleContext src;
+    public final Type type;
 
-    public Expression(Type type) {
+    public Expression(Type type, ParserRuleContext src) {
         this.type = type;
-    }
-
-    public Expression(Type type, ExprPosition pos) {
-        this.pos = pos;
-        this.type = type;
+        this.src = src;
     }
 
     public enum Type {
@@ -38,74 +36,71 @@ public class Expression {
     }
 
     public static class ModuleExpr extends Expression {
-        public ExprPosition pname;
         public String name;
         public List<Expression> expressions = new ArrayList<>();
 
-        public ModuleExpr(ExprPosition pos, ExprPosition pname, String name) {
-            super(Type.MODULE, pos);
-            this.pname = pname;
+        public ModuleExpr(ParserRuleContext src, String name) {
+            super(Type.MODULE, src);
             this.name = name;
         }
     }
 
     public static class MethodExpr extends Expression {
-        public ExprPosition pname, pdesc;
-        public int pend;
         public String module, name, desc;
         public List<Expression> expressions = new ArrayList<>();
 
-        public MethodExpr(ExprPosition pos, ExprPosition pname, ExprPosition pdesc, int pend, String module, String name, String desc) {
-            super(Type.METHOD, pos);
-            this.pname = pname;
-            this.pdesc = pdesc;
-            this.pend = pend;
+        public MethodExpr(ParserRuleContext src, String module, String name, String desc) {
+            super(Type.METHOD, src);
             this.module = module;
             this.name = name;
             this.desc = desc;
         }
 
-        public void init(ModuleExpr module, ru.DmN.lj.compiler.ljParser.MethodContext ctx) throws InvalidValueException {
+        public void init(ModuleExpr module, ru.DmN.lj.compiler.ljParser.MethodContext ctx) throws GrammaticalException {
             this.parseBody(ctx.body());
         }
 
-        public void parseBody(ru.DmN.lj.compiler.ljParser.BodyContext body) throws InvalidValueException {
+        public void parseBody(ru.DmN.lj.compiler.ljParser.BodyContext body) throws GrammaticalException {
             for (var expr : body.any_expr()) {
                 Expression parsed;
                 //
                 if (expr.push() != null)
-                    parsed = new PushExpr(ExprPosition.of(expr.push()), parseValue(expr.push().value()));
+                    parsed = new PushExpr(expr.push(), parseValue(expr.push().value()));
                 else if (expr.call() != null) {
-                    var call = expr.call().method_ref();
-                    if (call.module_ == null)
-                        throw new Compiler.Parser.InvalidExprException(ExprPosition.of(expr.call()));
-                    if (call.name == null)
-                        throw new Compiler.Parser.InvalidExprException(new ExprPosition(call.start.getLine(), expr.call().start.getStartIndex(), call.module_.getStopIndex() + 1));
-                    if (call.desc == null || call.desc.getStartIndex() == -1)
-                        throw new Compiler.Parser.InvalidExprException(new ExprPosition(call.start.getLine(), expr.call().start.getStartIndex(), call.name.getStopIndex() + 1));
-                    parsed = new CallExpr(ExprPosition.of(expr.call()), ExprPosition.of(call.module_), ExprPosition.of(call.name), ExprPosition.of(call.desc), call.module_.getText(), call.name.getText(), call.desc.getText());
+                    var call = expr.call();
+                    var ref = call.method_ref();
+                    if (ref == null || ref.module_ == null || ref.name == null || ref.desc == null)
+                        throw new GrammaticalException(call);
+                    parsed = new CallExpr(call, ref.module_.getText(), ref.name.getText(), ref.desc.getText());
                 } else if (expr.return_() != null) {
-                    var val = expr.return_().value();
-                    parsed = new ReturnExpr(ExprPosition.of(expr), parseValue(val));
-                } else if (expr.assign() != null) {
-                    var var = expr.assign().var_ref();
-                    var val = parseValue(expr.assign().value());
+                    var ret = expr.return_();
+                    var val = ret.value();
                     if (val == null)
-                        throw new Compiler.Parser.InvalidExprException(new ExprPosition(var.start.getLine(), var.start.getStartIndex(), expr.stop.getStopIndex()));
-                    parsed = new AssignExpr(ExprPosition.of(var.module_), ExprPosition.of(var.name), var.module_.getText(), var.name.getText(), val);
+                        throw new GrammaticalException(ret);
+                    parsed = new ReturnExpr(ret, parseValue(val));
+                } else if (expr.assign() != null) {
+                    var ass = expr.assign();
+                    var var = ass.var_ref();
+                    if (var == null || var.module_ == null || var.name == null)
+                        throw new GrammaticalException(ass);
+                    parsed = new AssignExpr(ass, var.module_.getText(), var.name.getText(), parseValue(ass.value()));
                 } else if (expr.variable() != null) {
                     var var = expr.variable();
-                    parsed = new VariableExpr(ExprPosition.of(expr), ExprPosition.of(var.name), ".", var.name.getText(), Expression.parseValue(var.value()));
+                    parsed = new VariableExpr(var, ".", var.name.getText(), Expression.parseValue(var.value()));
                 } else if (expr.opcode() != null) {
                     var opcode = expr.opcode();
-                    parsed = new OpcodeExpr(ExprPosition.of(expr), Opcode.valueOf(opcode.LITERAL().getText().toUpperCase()));
+                    parsed = new OpcodeExpr(opcode, Opcode.valueOf(opcode.LITERAL().getText().toUpperCase()));
                 } else if (expr.label() != null) {
-                    var label = expr.label().LITERAL();
-                    parsed = new LabelExpr(ExprPosition.of(expr), ExprPosition.of(label), label.getText());
+                    var label = expr.label();
+                    if (label.LITERAL() == null)
+                        throw new GrammaticalException(label);
+                    parsed = new LabelExpr(label, label.LITERAL().getText());
                 } else if (expr.jmp() != null) {
                     var jmp = expr.jmp();
                     var label = jmp.LITERAL();
-                    parsed = new JmpExpr(ExprPosition.of(expr), ExprPosition.of(label), jmp.type.getText().equals("jmp") ? Type.JMP : Type.CJMP, label.getText());
+                    if (label == null || jmp.type == null)
+                        throw new GrammaticalException(jmp);
+                    parsed = new JmpExpr(jmp, jmp.type.getText().equals("jmp") ? Type.JMP : Type.CJMP, label.getText());
                 } else throw new RuntimeException("todo:");
                 //
                 this.expressions.add(parsed);
@@ -114,14 +109,12 @@ public class Expression {
     }
 
     public static class VariableExpr extends Expression {
-        public ExprPosition pname;
         public String module;
         public String name;
         public Expression value;
 
-        public VariableExpr(ExprPosition pos, ExprPosition pname, String module, String name, Expression value) {
-            super(Type.VARIABLE, pos);
-            this.pname = pname;
+        public VariableExpr(ParserRuleContext src, String module, String name, Expression value) {
+            super(Type.VARIABLE, src);
             this.module = module;
             this.name = name;
             this.value = value;
@@ -129,36 +122,30 @@ public class Expression {
     }
 
     public static class LabelExpr extends Expression {
-        public ExprPosition plabel;
         public String label;
 
-        public LabelExpr(ExprPosition pos, ExprPosition plabel, String label) {
-            super(Type.LABEL, pos);
-            this.plabel = plabel;
+        public LabelExpr(ParserRuleContext src, String label) {
+            super(Type.LABEL, src);
             this.label = label;
         }
     }
 
     public static class JmpExpr extends Expression {
-        public ExprPosition plabel;
         public String label;
 
-        public JmpExpr(ExprPosition pos, ExprPosition plabel, Type type, String label) {
-            super(type, pos);
-            this.plabel = plabel;
+        public JmpExpr(ParserRuleContext src, Type type, String label) {
+            super(type, src);
             this.label = label;
         }
     }
 
     public static class AssignExpr extends Expression {
-        public ExprPosition pname;
         public String module;
         public String name;
         public Expression value;
 
-        public AssignExpr(ExprPosition pos, ExprPosition pname, String module, String name, Expression value) {
-            super(Type.ASSIGN, pos);
-            this.pname = pname;
+        public AssignExpr(ParserRuleContext src, String module, String name, Expression value) {
+            super(Type.ASSIGN, src);
             this.module = module;
             this.name = name;
             this.value = value;
@@ -168,8 +155,8 @@ public class Expression {
     public static class OpcodeExpr extends Expression {
         public Opcode opcode;
 
-        public OpcodeExpr(ExprPosition pos, Opcode opcode) {
-            super(Type.OPCODE, pos);
+        public OpcodeExpr(ParserRuleContext src, Opcode opcode) {
+            super(Type.OPCODE, src);
             this.opcode = opcode;
         }
     }
@@ -177,23 +164,19 @@ public class Expression {
     public static class ReturnExpr extends Expression {
         public Expression value;
 
-        public ReturnExpr(ExprPosition pos, Expression value) {
-            super(Type.RETURN, pos);
+        public ReturnExpr(ParserRuleContext src, Expression value) {
+            super(Type.RETURN, src);
             this.value = value;
         }
     }
 
     public static class CallExpr extends Expression {
-        public ExprPosition pmodule, pname, pdesc;
         public String module;
         public String name;
         public String desc;
 
-        public CallExpr(ExprPosition pos, ExprPosition pmodule, ExprPosition pname, ExprPosition pdesc, String module, String name, String desc) {
-            super(Type.CALL, pos);
-            this.pmodule = pmodule;
-            this.pname = pname;
-            this.pdesc = pdesc;
+        public CallExpr(ParserRuleContext src, String module, String name, String desc) {
+            super(Type.CALL, src);
             this.module = module;
             this.name = name;
             this.desc = desc;
@@ -203,8 +186,8 @@ public class Expression {
     public static class PushExpr extends Expression {
         public Expression value;
 
-        public PushExpr(ExprPosition pos, Expression value) {
-            super(Type.PUSH, pos);
+        public PushExpr(ParserRuleContext src, Expression value) {
+            super(Type.PUSH, src);
             this.value = value;
         }
     }
@@ -212,41 +195,32 @@ public class Expression {
     public static class ValueExpr extends Expression {
         public Object value;
 
-        public ValueExpr(ExprPosition pos, Object value) {
-            super(Type.VALUE, pos);
+        public ValueExpr(ParserRuleContext src, Object value) {
+            super(Type.VALUE, src);
             this.value = value;
         }
     }
 
-    public static Expression parseValue(ru.DmN.lj.compiler.ljParser.ValueContext value) throws InvalidValueException {
+    public static Expression parseValue(ru.DmN.lj.compiler.ljParser.ValueContext value) throws GrammaticalException {
         if (value == null)
             return new ValueExpr(null, null);
         if (value.NULL() != null)
-            return new ValueExpr(ExprPosition.of(value.NULL()), null);
+            return new ValueExpr(value, null);
         if (value.NUM() != null) {
             var num = value.NUM();
-            return new ValueExpr(ExprPosition.of(num), Double.valueOf(num.getText()));
+            return new ValueExpr(value, Double.valueOf(num.getText()));
         }
         if (value.STRING() != null) {
             var str = value.STRING();
-            return new ValueExpr(ExprPosition.of(str), str.getText());
+            return new ValueExpr(value, str.getText());
         }
         if (value.var_ref() != null) {
             var var = value.var_ref();
-            return new VariableExpr(ExprPosition.of(var.module_), ExprPosition.of(var.name), var.module_.getText(), var.name.getText(), null);
+            return new VariableExpr(value, var.module_.getText(), var.name.getText(), null);
         }
         if (value.pop() != null)
-            return new OpcodeExpr(ExprPosition.of(value.pop()), Opcode.POP);
-        return null;
+            return new OpcodeExpr(value, Opcode.POP);
+        throw new GrammaticalException(value);
 //        throw new InvalidValueException(ExprPosition.of(value), "todo:");
-    }
-
-    public static class InvalidValueException extends Exception {
-        public final ExprPosition pos;
-
-        public InvalidValueException(ExprPosition pos, String text) {
-            super(text);
-            this.pos = pos;
-        }
     }
 }

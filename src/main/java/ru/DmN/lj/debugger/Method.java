@@ -20,7 +20,7 @@ public class Method {
 
         public Native(String name, String desc, NM method) {
             super(name, desc);
-            this.expressions = List.of(new Expression(Expression.Type.NATIVE));
+            this.expressions = List.of(new Expression(Expression.Type.NATIVE, null));
             this.method = method;
         }
 
