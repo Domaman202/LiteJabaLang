@@ -74,10 +74,7 @@ public class Expression {
                     parsed = new CallExpr(call, ref.module_.getText(), ref.name.getText(), ref.desc.getText());
                 } else if (expr.return_() != null) {
                     var ret = expr.return_();
-                    var val = ret.value();
-                    if (val == null)
-                        throw new GrammaticalException(ret);
-                    parsed = new ReturnExpr(ret, parseValue(val));
+                    parsed = new ReturnExpr(ret, parseValue(ret.value()));
                 } else if (expr.assign() != null) {
                     var ass = expr.assign();
                     var var = ass.var_ref();

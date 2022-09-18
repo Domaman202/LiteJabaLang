@@ -13,7 +13,7 @@ file
 //
 
 module
-    : 'module' LITERAL newline ((variable|method) newline)*
+    : 'module' LITERAL newline ((variable|method) newline)* 'end'
     ;
 
 method

@@ -47,6 +47,7 @@ public class Main {
 
                         return 0
                     <|
+                end
                 """);
 
         var debugger = new SimpleDebugger();
