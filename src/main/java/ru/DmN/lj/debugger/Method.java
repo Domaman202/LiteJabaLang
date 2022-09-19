@@ -15,6 +15,14 @@ public class Method {
         this.desc = desc;
     }
 
+    @Override
+    public String toString() {
+        return "Method{" +
+                "name='" + name + '\'' +
+                ", desc='" + desc + '\'' +
+                '}';
+    }
+
     public static class Native extends Method {
         public final NM method;
 

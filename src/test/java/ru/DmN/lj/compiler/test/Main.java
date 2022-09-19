@@ -14,8 +14,12 @@ public class Main {
             compiler.compile(new String(stream.readAllBytes()));
         }
 
+        // Создаём отладчик
         var debugger = new SimpleDebugger();
+        // Добавляем модуль "std"
         debugger.modules.add(new StdLibrary(System.out));
+        // Добавляем обработчик "точки останова"
+        debugger.breakPointListener = ((contexts, context) -> System.out.println("BreakPoint: " + context.method));
 
         System.out.println(debugger.run(compiler.modules.get(0), args));
     }

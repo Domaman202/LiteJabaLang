@@ -1,11 +1,13 @@
 package ru.DmN.lj.debugger;
 
 import ru.DmN.lj.compiler.Expression;
+import ru.DmN.lj.compiler.Opcode;
 
 import java.util.*;
 
 public class SimpleDebugger {
     public final List<Module> modules = new ArrayList<>();
+    public BreakPointListener breakPointListener;
 
     public int run(Expression.ModuleExpr m, String[] args) {
         var module = this.parse(m);
@@ -59,6 +61,10 @@ public class SimpleDebugger {
                             case AND -> stack.push((boolean) stack.pop() && (boolean) stack.pop());
                             case OR -> stack.push((boolean) stack.pop() || (boolean) stack.pop());
                             case NOT -> stack.push(! (boolean) stack.pop());
+                            //
+                            case NATIVE -> ((Method.Native) context.method).method.run(contexts, context);
+                            //
+                            case BREAKPOINT -> this.breakPointListener.listen(contexts, context);
                         }
                     }
                     //
@@ -69,13 +75,14 @@ public class SimpleDebugger {
                         context = new RunContext(this.modules.stream().filter(m -> m.name.equals(e.module)).findFirst().orElseThrow(() -> new RuntimeException("Модуль " + e.module + " не найден!")).methods.stream().filter(m -> m.name.equals(e.name) && m.desc.equals(e.desc)).findFirst().get());
                         context.i--;
                     }
+                    case RETURN -> {
+                        return this.parseValue(context, ((Expression.ReturnExpr) expr).value);
+                    }
+                    //
                     case JMP -> context.i = (int) context.variables.get(((Expression.JmpExpr) expr).label);
                     case CJMP -> {
                         if ((boolean) context.stack.pop())
                             context.i = (int) context.variables.get(((Expression.JmpExpr) expr).label);
-                    }
-                    case RETURN -> {
-                        return this.parseValue(context, ((Expression.ReturnExpr) expr).value);
                     }
                     //
                     case LABEL -> context.variables.put(((Expression.LabelExpr) expr).label, context.i);
@@ -122,6 +129,11 @@ public class SimpleDebugger {
                     yield context.variables.get(var.name);
                 else yield this.modules.stream().filter(m -> m.name.equals(var.module)).findFirst().orElseThrow(() -> new RuntimeException("Модуль `" + var.module + "` не найден!")).variables.get(var.name);
             }
+            case OPCODE -> {
+                if (((Expression.OpcodeExpr) expr).opcode == Opcode.POP)
+                    yield context.stack.pop();
+                throw new UnsupportedOperationException();
+            }
             default -> throw new UnsupportedOperationException();
         };
     }
@@ -135,5 +147,10 @@ public class SimpleDebugger {
         public RunContext(Method method) {
             this.method = method;
         }
+    }
+
+    @FunctionalInterface
+    public interface BreakPointListener {
+        void listen(List<RunContext> contexts, RunContext context);
     }
 }

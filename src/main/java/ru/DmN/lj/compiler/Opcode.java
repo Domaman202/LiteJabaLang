@@ -19,7 +19,12 @@ public enum Opcode {
     NOT,
 
     CALL,
-    CJMP,
+    RETURN,
+
     JMP,
-    RETURN;
+    CJMP,
+
+    NATIVE,
+
+    BREAKPOINT
 }
