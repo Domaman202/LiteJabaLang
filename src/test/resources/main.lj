@@ -1,0 +1,42 @@
+module TM
+    var text
+
+    fun init|V
+    |>
+        TM$text = "Сало!"
+        return
+    <|
+
+    fun main|IO
+    |>
+        var str = TM$text
+        push .$str
+        call std$println|VO
+
+        push 12
+        push 21
+        opcode add
+        push -1
+        opcode add
+        call std$println|VO
+
+        // start loop
+        push 0
+        label loop
+
+        // print counter
+        opcode dup
+        call std$println|VO
+
+        push 1
+        opcode add
+
+        opcode dup
+        push 10
+        opcode great
+        cjmp loop
+        // end loop
+
+        return 0
+    <|
+end

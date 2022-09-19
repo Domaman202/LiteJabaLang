@@ -12,7 +12,10 @@ public class Compiler {
     public final List<Expression.ModuleExpr> modules = new ArrayList<>();
     public final Parser parser = new Parser();
 
-    public Compiler(String code) {
+    public Compiler() {
+    }
+
+    public synchronized void compile(String code) {
         var lexer = new ru.DmN.lj.compiler.ljLexer(CharStreams.fromString(code));
         var stream = new CommonTokenStream(lexer);
         var parser = new ru.DmN.lj.compiler.ljParser(stream);
