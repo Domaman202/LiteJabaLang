@@ -32,6 +32,9 @@ public class Expression {
         ASSIGN,
         LABEL,
 
+        LOGIC,
+        MATH,
+
         NATIVE
     }
 
@@ -189,6 +192,60 @@ public class Expression {
         }
     }
 
+    public static class LogicExpr extends Expression {
+        public Operation operation;
+        public Expression left, right;
+
+        public LogicExpr(ParserRuleContext src, Operation operation, Expression left, Expression right) {
+            super(Type.LOGIC, src);
+            this.operation = operation;
+            this.left = left;
+            this.right = right;
+        }
+
+        public enum Operation {
+            GREAT(OperType.MATH), // >
+            LESS(OperType.MATH), // <
+
+            EQUAL(OperType.ANY), // ==
+            NE(OperType.ANY), // !=
+
+            GE(OperType.MATH), // >=
+            LE(OperType.MATH); // <=
+
+            public final OperType type;
+
+            Operation(OperType type) {
+                this.type = type;
+            }
+        }
+
+        public enum OperType {
+            LOGIC,
+            MATH,
+            ANY
+        }
+    }
+
+    public static class MathExpr extends Expression {
+        public Operation operation;
+        public Expression left, right;
+
+        public MathExpr(ParserRuleContext src, Operation operation, Expression left, Expression right) {
+            super(Type.MATH, src);
+            this.operation = operation;
+            this.left = left;
+            this.right = right;
+        }
+
+        public enum Operation {
+            MUL,
+            DIV,
+            ADD,
+            SUB
+        }
+    }
+
     public static class ValueExpr extends Expression {
         public Object value;
 
@@ -203,21 +260,66 @@ public class Expression {
             return new ValueExpr(null, null);
         if (value.NULL() != null)
             return new ValueExpr(value, null);
-        if (value.NUM() != null) {
-            var num = value.NUM();
-            return new ValueExpr(value, Double.valueOf(num.getText()));
-        }
-        if (value.STRING() != null) {
-            var str = value.STRING();
-            return new ValueExpr(value, str.getText());
-        }
+        if (value.NUM() != null)
+            return new ValueExpr(value, Double.valueOf(value.NUM().getText()));
+        if (value.STRING() != null)
+            return new ValueExpr(value, value.STRING().getText());
         if (value.var_ref() != null) {
             var var = value.var_ref();
             return new VariableExpr(value, var.module_.getText(), var.name.getText(), null);
-        }
+         }
         if (value.pop() != null)
             return new OpcodeExpr(value, Opcode.POP);
+        if (value.logic_expr() != null)
+            return parseLogic(value, value.logic_expr());
+        if (value.math_expr() != null)
+            return parseMath(value, value.math_expr());
         throw new GrammaticalException(value);
-//        throw new InvalidValueException(ExprPosition.of(value), "todo:");
+    }
+
+    public static Expression parseLogic(ParserRuleContext src, ru.DmN.lj.compiler.ljParser.Logic_exprContext logic) {
+        if (logic.BOOL() != null)
+            return new ValueExpr(src, logic.BOOL().getText().equals("true"));
+        if (logic.logic_expr().size() == 1)
+            return parseLogic(src, logic.logic_expr().get(0));
+        var oper = switch (logic.oper.getText()) {
+            case ">" -> LogicExpr.Operation.GREAT;
+            case "<" -> LogicExpr.Operation.LESS;
+            case "==" -> LogicExpr.Operation.EQUAL;
+            case "!=" -> LogicExpr.Operation.NE;
+            case ">=" -> LogicExpr.Operation.GE;
+            case "<=" -> LogicExpr.Operation.LE;
+            default -> throw new IllegalStateException("Unexpected value: " + logic.oper.getText());
+        };
+        if (logic.logic_expr().size() == 2)
+            return new LogicExpr(src, oper, parseLogic(src, logic.logic_expr(0)), parseLogic(src, logic.logic_expr(1)));
+        return new LogicExpr(src, oper, parseMath(src, logic.math_expr(0)), parseMath(src, logic.math_expr(1)));
+    }
+
+    public static Expression parseMath(ParserRuleContext src, ru.DmN.lj.compiler.ljParser.Math_exprContext math) {
+        if (math.num_value() != null)
+            return parseNum(math.num_value());
+        if (math.math_expr().size() == 1)
+            return parseMath(src, math.math_expr().get(0));
+        var oper = switch (math.oper.getText()) {
+            case "*" -> MathExpr.Operation.MUL;
+            case "/" -> MathExpr.Operation.DIV;
+            case "+" -> MathExpr.Operation.ADD;
+            case "-" -> MathExpr.Operation.SUB;
+            default -> throw new IllegalStateException("Unexpected value: " + math.oper.getText());
+        };
+        return new MathExpr(src, oper, parseMath(src, math.math_expr(0)), parseMath(src, math.math_expr(1)));
+    }
+
+    public static Expression parseNum(ru.DmN.lj.compiler.ljParser.Num_valueContext num) {
+        if (num.NUM() != null)
+            return new ValueExpr(num, Double.valueOf(num.NUM().getText()));
+        if (num.var_ref() != null) {
+            var var = num.var_ref();
+            return new VariableExpr(num, var.module_.getText(), var.name.getText(), null);
+        }
+        if (num.pop() != null)
+            return new OpcodeExpr(num, Opcode.POP);
+        throw new GrammaticalException(num);
     }
 }

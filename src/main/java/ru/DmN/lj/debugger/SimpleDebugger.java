@@ -134,6 +134,30 @@ public class SimpleDebugger {
                     yield context.stack.pop();
                 throw new UnsupportedOperationException();
             }
+            case LOGIC -> {
+                var logic = (Expression.LogicExpr) expr;
+                var left = parseValue(context, logic.left);
+                var right = parseValue(context, logic.right);
+                yield switch (logic.operation) {
+                    case GREAT -> (double) left > (double) right;
+                    case LESS -> (double) left < (double) right;
+                    case EQUAL -> left == right;
+                    case NE -> left != right;
+                    case GE -> (double) left >= (double) right;
+                    case LE -> (double) left <= (double) right;
+                };
+            }
+            case MATH -> {
+                var math = (Expression.MathExpr) expr;
+                var left = parseValue(context, math.left);
+                var right = parseValue(context, math.right);
+                yield switch (math.operation) {
+                    case MUL -> (double) left * (double) right;
+                    case DIV -> (double) left / (double) right;
+                    case ADD -> (double) left + (double) right;
+                    case SUB -> (double) left - (double) right;
+                };
+            }
             default -> throw new UnsupportedOperationException();
         };
     }

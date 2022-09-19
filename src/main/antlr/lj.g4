@@ -75,12 +75,36 @@ push
 
 //
 
+math_expr
+    : num_value
+    | '(' math_expr ')'
+    | left=math_expr oper=('*'|'/') math_expr
+    | right=math_expr oper=('+'|'-') math_expr
+    ;
+
+logic_expr
+    : BOOL
+    | '(' logic_expr ')'
+    | math_expr oper=('<='|'<'|'>'|'>=') math_expr
+    | logic_expr oper=('=='|'!=') logic_expr
+    ;
+
+//
+
 value
     : NULL
     | NUM
     | STRING
     | var_ref
     | method_ref
+    | pop
+    | math_expr
+    | logic_expr
+    ;
+
+num_value
+    : NUM
+    | var_ref
     | pop
     ;
 
@@ -98,7 +122,9 @@ var_ref
 
 //
 
-newline : NEWLINE* ;
+newline
+    : NEWLINE*
+    ;
 
 // ЛЕКСЕР
 
@@ -114,6 +140,11 @@ NUM
     : '-'? ('0'..'9')+
     ;
 
+BOOL
+    : 'true'
+    | 'false'
+    ;
+
 LITERAL
     : ('a'..'z'|'A'..'Z') ('a'..'z'|'A'..'Z'|'0'..'9')*
     ;
@@ -127,5 +158,5 @@ WS
     ;
 
 COMMENT
-    :  '//' (~'\n')* NEWLINE -> skip
+    :  '#' (~'\n')* (NEWLINE|EOF) -> skip
     ;
