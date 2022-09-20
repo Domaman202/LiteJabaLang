@@ -15,14 +15,13 @@ import java.util.List;
 import java.util.Scanner;
 
 public class SimpleConsoleDebugger {
-    public static final Scanner scanner = new Scanner(System.in);
     public static SimpleDebugger debugger;
 
     public static void main(String[] args) throws IOException {
             program:
             while (true) {
                 System.out.print("#|");
-                var cmd = scanner.nextLine().split(" ");
+                var cmd = readLine().split(" ");
                 switch (cmd[0]) {
                     case "check" -> {
                         if (cmd.length < 2)
@@ -128,14 +127,14 @@ public class SimpleConsoleDebugger {
 
     public static void resetDebugger() {
         debugger = new SimpleDebugger();
-        debugger.modules.add(new StdLibrary(System.out));
+        debugger.modules.add(new StdLibrary(System.in, System.out));
         debugger.breakPointListener = ((contexts, ctx) -> {
             System.out.println("Сработала точка останова [" + ctx.method.expressions.get(ctx.i).src.getStart().getLine() + "]");
 
             program:
             while (true) {
                 System.out.print("#|");
-                var cmd = scanner.nextLine().split(" ");
+                var cmd = readLine().split(" ");
                 switch (cmd[0]) {
                     case "eval" -> {
                         System.out.println("Вы вошли в режим `eval`!\nВведите код, чтобы запустить напишите `:eval`, чтобы отменить запуск и выйти из режима напишите `:exit`!\n");
@@ -144,7 +143,7 @@ public class SimpleConsoleDebugger {
                         evaluator:
                         while (true) {
                             System.out.print("|>");
-                            var in = scanner.nextLine();
+                            var in = readLine();
                             cmd = in.split(" ");
                             switch (cmd[0]) {
                                 default -> code.append(in).append('\n');
@@ -216,6 +215,10 @@ public class SimpleConsoleDebugger {
                 | help - выводит список комманд
                 [>
                 """);
+    }
+
+    public static String readLine() throws IOException {
+        return new BufferedReader(new InputStreamReader(System.in)).readLine();
     }
 
     static {

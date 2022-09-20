@@ -17,7 +17,7 @@ public class Main {
         // Создаём отладчик
         var debugger = new SimpleDebugger();
         // Добавляем модуль "std"
-        debugger.modules.add(new StdLibrary(System.out));
+        debugger.modules.add(new StdLibrary(System.in, System.out));
         // Добавляем обработчик "точки останова"
         debugger.breakPointListener = ((contexts, context) -> System.out.println("BreakPoint: " + context.method));
 
