@@ -35,7 +35,65 @@ public class Expression {
         LOGIC,
         MATH,
 
+        TRY,
+
         NATIVE
+    }
+
+    public static List<Expression> parseBody(ru.DmN.lj.compiler.ljParser.BodyContext body) throws GrammaticalException {
+        var exprs = new ArrayList<Expression>();
+        //
+        for (var expr : body.any_expr()) {
+            Expression parsed;
+            //
+            if (expr.push() != null)
+                parsed = new PushExpr(expr.push(), parseValue(expr.push().value()));
+            else if (expr.call() != null) {
+                var call = expr.call();
+                var ref = call.method_ref();
+                if (ref == null || ref.module_ == null || ref.name == null || ref.desc == null)
+                    throw new GrammaticalException(call);
+                parsed = new CallExpr(call, ref.module_.getText(), ref.name.getText(), ref.desc.getText());
+            } else if (expr.return_() != null) {
+                var ret = expr.return_();
+                parsed = new ReturnExpr(ret, parseValue(ret.value()));
+            } else if (expr.assign() != null) {
+                var ass = expr.assign();
+                var var = ass.var_ref();
+                if (var == null || var.module_ == null || var.name == null)
+                    throw new GrammaticalException(ass);
+                parsed = new AssignExpr(ass, var.module_.getText(), var.name.getText(), parseValue(ass.value()));
+            } else if (expr.variable() != null) {
+                var var = expr.variable();
+                parsed = new VariableExpr(var, ".", var.name.getText(), Expression.parseValue(var.value()));
+            } else if (expr.opcode() != null) {
+                var opcode = expr.opcode();
+                parsed = new OpcodeExpr(opcode, Opcode.valueOf(opcode.LITERAL().getText().toUpperCase()));
+            } else if (expr.label() != null) {
+                var label = expr.label();
+                if (label.LITERAL() == null)
+                    throw new GrammaticalException(label);
+                parsed = new LabelExpr(label, label.LITERAL().getText());
+            } else if (expr.jmp() != null) {
+                var jmp = expr.jmp();
+                var label = jmp.LITERAL();
+                if (label == null || jmp.type == null)
+                    throw new GrammaticalException(jmp);
+                parsed = new JmpExpr(jmp, jmp.type.getText().equals("jmp") ? Type.JMP : Type.CJMP, label.getText());
+            } else if (expr.try_() != null) {
+                var try_ = expr.try_();
+                exprs.add(new TryExpr(try_, try_.LITERAL().getText()));
+                exprs.addAll(parseBody(try_.body()));
+                exprs.add(new OpcodeExpr(try_, Opcode.TRY_END));
+                continue;
+            } else {
+                throw new RuntimeException("todo:");
+            }
+            //
+            exprs.add(parsed);
+        }
+        //
+        return exprs;
     }
 
     public static class ModuleExpr extends Expression {
@@ -60,51 +118,7 @@ public class Expression {
         }
 
         public void init(ModuleExpr module, ru.DmN.lj.compiler.ljParser.MethodContext ctx) throws GrammaticalException {
-            this.parseBody(ctx.body());
-        }
-
-        public void parseBody(ru.DmN.lj.compiler.ljParser.BodyContext body) throws GrammaticalException {
-            for (var expr : body.any_expr()) {
-                Expression parsed;
-                //
-                if (expr.push() != null)
-                    parsed = new PushExpr(expr.push(), parseValue(expr.push().value()));
-                else if (expr.call() != null) {
-                    var call = expr.call();
-                    var ref = call.method_ref();
-                    if (ref == null || ref.module_ == null || ref.name == null || ref.desc == null)
-                        throw new GrammaticalException(call);
-                    parsed = new CallExpr(call, ref.module_.getText(), ref.name.getText(), ref.desc.getText());
-                } else if (expr.return_() != null) {
-                    var ret = expr.return_();
-                    parsed = new ReturnExpr(ret, parseValue(ret.value()));
-                } else if (expr.assign() != null) {
-                    var ass = expr.assign();
-                    var var = ass.var_ref();
-                    if (var == null || var.module_ == null || var.name == null)
-                        throw new GrammaticalException(ass);
-                    parsed = new AssignExpr(ass, var.module_.getText(), var.name.getText(), parseValue(ass.value()));
-                } else if (expr.variable() != null) {
-                    var var = expr.variable();
-                    parsed = new VariableExpr(var, ".", var.name.getText(), Expression.parseValue(var.value()));
-                } else if (expr.opcode() != null) {
-                    var opcode = expr.opcode();
-                    parsed = new OpcodeExpr(opcode, Opcode.valueOf(opcode.LITERAL().getText().toUpperCase()));
-                } else if (expr.label() != null) {
-                    var label = expr.label();
-                    if (label.LITERAL() == null)
-                        throw new GrammaticalException(label);
-                    parsed = new LabelExpr(label, label.LITERAL().getText());
-                } else if (expr.jmp() != null) {
-                    var jmp = expr.jmp();
-                    var label = jmp.LITERAL();
-                    if (label == null || jmp.type == null)
-                        throw new GrammaticalException(jmp);
-                    parsed = new JmpExpr(jmp, jmp.type.getText().equals("jmp") ? Type.JMP : Type.CJMP, label.getText());
-                } else throw new RuntimeException("todo:");
-                //
-                this.expressions.add(parsed);
-            }
+            this.expressions = Expression.parseBody(ctx.body());
         }
     }
 
@@ -136,6 +150,15 @@ public class Expression {
         public JmpExpr(ParserRuleContext src, Type type, String label) {
             super(type, src);
             this.label = label;
+        }
+    }
+
+    public static class TryExpr extends Expression {
+        public String catch_;
+
+        public TryExpr(ParserRuleContext src, String catch_) {
+            super(Type.TRY, src);
+            this.catch_ = catch_;
         }
     }
 

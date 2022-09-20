@@ -26,6 +26,10 @@ variable
 
 //
 
+try
+    : 'try' LITERAL newline? t=body
+    ;
+
 body
     : '|>' newline (any_expr newline)* '<|'
     ;
@@ -39,6 +43,7 @@ any_expr
     | label
     | jmp
     | assign
+    | try
     ;
 
 //

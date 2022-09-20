@@ -68,6 +68,19 @@ module TM
         # Точка останова
         opcode breakpoint
 
+        try catch
+        |>
+            push "Текст исключения."
+            call std$exception|OO
+            opcode throw
+        <|
+
+        # Возвращаем 1
+        return 1
+
+        label catch
+        call std$println|VO
+
         # Возвращаем 0
         return 0
     <|

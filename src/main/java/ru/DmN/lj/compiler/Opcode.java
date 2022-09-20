@@ -24,6 +24,10 @@ public enum Opcode {
     JMP,
     CJMP,
 
+    TRY,
+    TRY_END,
+    THROW,
+
     NATIVE,
 
     BREAKPOINT

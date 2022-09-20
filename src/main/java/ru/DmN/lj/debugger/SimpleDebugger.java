@@ -27,6 +27,8 @@ public class SimpleDebugger {
         //
         while (contexts.size() > 0) {
             for (var context = contexts.pop(); context.i < context.method.expressions.size(); context.i++) {
+                if (!context.linit)
+                    this.linit(context);
                 var expr = context.method.expressions.get(context.i);
                 switch (expr.type) {
                     case VARIABLE -> {
@@ -64,7 +66,16 @@ public class SimpleDebugger {
                             //
                             case NATIVE -> ((Method.Native) context.method).method.run(contexts, context);
                             //
+                            case THROW -> {
+                                var ctx = this.findCatch(contexts, context);
+                                context = ctx;
+                                context.i = (int) ctx.variables.get(ctx.catch_.pop());
+                            }
+                            case TRY_END -> context.catch_.pop();
+                            //
                             case BREAKPOINT -> this.breakPointListener.listen(contexts, context);
+                            //
+                            default -> throw new UnsupportedOperationException();
                         }
                     }
                     //
@@ -94,6 +105,8 @@ public class SimpleDebugger {
                         else this.modules.stream().filter(m -> m.name.equals(asg.module)).findFirst().orElseThrow(() -> new RuntimeException("Модуль `" + asg.module + "` не найден!")).variables.put(asg.name, value);
                     }
                     //
+                    case TRY -> context.catch_.push(((Expression.TryExpr) expr).catch_);
+                    //
                     case NATIVE -> ((Method.Native) context.method).method.run(contexts, context);
                     //
                     default -> throw new UnsupportedOperationException();
@@ -103,6 +116,23 @@ public class SimpleDebugger {
         if (method.desc.charAt(0) == 'V')
             return null;
         throw new RuntimeException("Метод " + method.name + "|" + method.desc + " не имеет опкода возврата!");
+    }
+
+    public RunContext findCatch(Stack<RunContext> contexts, RunContext this_) {
+        RunContext ctx = this_;
+        while (ctx.catch_.size() == 0)
+            ctx = contexts.pop();
+        return ctx;
+    }
+
+    public void linit(RunContext context) {
+        var method = context.method;
+        for (int i = 0; i < method.expressions.size(); i++) {
+            var expr = method.expressions.get(i);
+            if (expr.type == Expression.Type.LABEL)
+                context.variables.put(((Expression.LabelExpr) expr).label, i);
+        }
+        context.linit = true;
     }
 
     public Module parse(Expression.ModuleExpr m) {
@@ -167,6 +197,8 @@ public class SimpleDebugger {
         public int i;
         public final Stack<Object> stack = new Stack<>();
         public final Map<String, Object> variables = new HashMap<>();
+        public final Deque<String> catch_ = new ArrayDeque<>();
+        public boolean linit = false;
 
         public RunContext(Method method) {
             this.method = method;
