@@ -68,21 +68,46 @@ module TM
         # Точка останова
         opcode breakpoint
 
+        # Блок try-catch, с указанием метки `catch` для отлавливания исключений
         try catch
         |>
+            # Помещаем в стек строку "Текст исключения."
             push "Текст исключения."
-            call std$exception|OO
-            opcode throw
+            # Вызываем функцию `exception` с дескриптором `OO` модуля `std`
+            call std$exception|OO # Функция std$exception|OO служит для создания исключения
+            # Бросаем исключение [E] -> []
+            opcode throw # После этого будет выполнен переход на метку `catch`
         <|
+        # Конец try-catch блока
 
         # Возвращаем 1
         return 1
 
+        # Метка `catch`
         label catch
-        call std$println|VO
+        # Вызываем функцию `println` с дескриптором `VO` модуля `std`
+        call std$println|VO # Вывод: Текст исключения.
+
+        # Вызываем функцию `foo` с дескриптором `V` модуля `TM` (текущего)
+        call TM$foo|V
 
         # Возвращаем 0
         return 0
+    <|
+
+    # Функция `foo` с дескриптором `V` 
+    fun foo|V
+    |>
+        # Помещаем в стек строку "Foo!"
+        push "Foo!"
+        # Вызываем функцию `println` с дескриптором `VO` модуля `std`
+        call std$println|VO # Вывод: Foo!
+
+        # Точка останова
+        opcode breakpoint
+        
+        # Производим выход из функции
+        return # TODO: избавиться от пустых return в конце
     <|
 end
 # Конец объявления модуля `TM`

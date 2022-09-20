@@ -20,10 +20,15 @@ public class SimpleDebugger {
         else throw new RuntimeException("Метод `main|IO` не найден");
     }
 
-    public Object run(Module module, Method method) {
+    public Object run(Module module, Method method, Object ... args) {
         var contexts = new Stack<RunContext>();
         //
-        contexts.push(new RunContext(method));
+        {
+            var ctx = new RunContext(method);
+            for (var arg : args)
+                ctx.stack.push(arg);
+            contexts.push(ctx);
+        }
         //
         while (contexts.size() > 0) {
             for (var context = contexts.pop(); context.i < context.method.expressions.size(); context.i++) {
@@ -41,8 +46,6 @@ public class SimpleDebugger {
                     case OPCODE -> {
                         var stack = context.stack;;
                         switch (((Expression.OpcodeExpr) expr).opcode) {
-                            case PUSH,RETURN,CALL,JMP -> throw new UnsupportedOperationException();
-                            //
                             case POP -> stack.pop();
                             case SWAP -> {
                                 var x = stack.pop();
@@ -73,7 +76,13 @@ public class SimpleDebugger {
                             }
                             case TRY_END -> context.catch_.pop();
                             //
-                            case BREAKPOINT -> this.breakPointListener.listen(contexts, context);
+                            case BREAKPOINT -> {
+                                try {
+                                    this.breakPointListener.listen(contexts, context);
+                                } catch (Throwable t) {
+                                    throw new RuntimeException(t);
+                                }
+                            }
                             //
                             default -> throw new UnsupportedOperationException();
                         }
@@ -87,7 +96,13 @@ public class SimpleDebugger {
                         context.i--;
                     }
                     case RETURN -> {
-                        return this.parseValue(context, ((Expression.ReturnExpr) expr).value);
+                        var ret = ((Expression.ReturnExpr) expr).value;
+                        if (contexts.isEmpty())
+                            return this.parseValue(context, ret);
+                        context = contexts.pop();
+                        context.i--;
+                        if (ret != null)
+                            context.stack.push(this.parseValue(context, ret));
                     }
                     //
                     case JMP -> context.i = (int) context.variables.get(((Expression.JmpExpr) expr).label);
@@ -207,6 +222,6 @@ public class SimpleDebugger {
 
     @FunctionalInterface
     public interface BreakPointListener {
-        void listen(List<RunContext> contexts, RunContext context);
+        void listen(Stack<RunContext> contexts, RunContext context) throws Throwable;
     }
 }

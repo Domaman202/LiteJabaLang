@@ -1,8 +1,9 @@
 package ru.DmN.lj.compiler;
 
+import org.antlr.v4.runtime.ANTLRErrorListener;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
-import org.antlr.v4.runtime.tree.ErrorNode;
+import org.antlr.v4.runtime.ConsoleErrorListener;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
 
 import java.util.ArrayList;
@@ -15,11 +16,23 @@ public class Compiler {
     public Compiler() {
     }
 
-    public synchronized void compile(String code) {
+    public synchronized void compile(String code) throws TokenException {
+        compile(code, null);
+    }
+
+    public synchronized void compile(String code, ANTLRErrorListener el) throws TokenException {
         var lexer = new ru.DmN.lj.compiler.ljLexer(CharStreams.fromString(code));
         var stream = new CommonTokenStream(lexer);
         var parser = new ru.DmN.lj.compiler.ljParser(stream);
         var walker = new ParseTreeWalker();
+        //
+        if (el != null) {
+            lexer.removeErrorListener(ConsoleErrorListener.INSTANCE);
+            parser.removeErrorListener(ConsoleErrorListener.INSTANCE);
+            lexer.addErrorListener(el);
+            parser.addErrorListener(el);
+        }
+        //
         walker.walk(this.parser, parser.file());
     }
 
@@ -41,10 +54,10 @@ public class Compiler {
             }
         }
 
-        @Override
-        public void visitErrorNode(ErrorNode node) {
-            throw new TokenException(node);
-        }
+//        @Override
+//        public void visitErrorNode(ErrorNode node) {
+//            throw new TokenException(node);
+//        }
     }
 
     public static class Translator {

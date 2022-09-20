@@ -17,10 +17,7 @@ public class Method {
 
     @Override
     public String toString() {
-        return "Method{" +
-                "name='" + name + '\'' +
-                ", desc='" + desc + '\'' +
-                '}';
+        return "[" + this.name + "|" + this.desc + "]";
     }
 
     public static class Native extends Method {

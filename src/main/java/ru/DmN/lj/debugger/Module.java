@@ -16,6 +16,12 @@ public class Module {
     }
 
     public void init(SimpleDebugger debugger) {
-        debugger.run(this, this.methods.stream().filter(m -> m.name.equals("init") && m.desc.equals("V")).findFirst().orElseThrow(() -> new RuntimeException("Метод `init|V` не найден")));
+        var init = this.methods.stream().filter(m -> m.name.equals("init") && m.desc.equals("V")).findFirst();
+        init.ifPresent(method -> debugger.run(this, method));
+    }
+
+    @Override
+    public String toString() {
+        return "[" + name + "]";
     }
 }
