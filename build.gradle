@@ -3,8 +3,8 @@ plugins {
     id 'antlr'
 }
 
-group 'org.example'
-version '1.0-SNAPSHOT'
+group 'ru.DmN'
+version '1.0'
 
 repositories {
     mavenCentral()
