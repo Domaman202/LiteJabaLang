@@ -150,7 +150,7 @@ public class SimpleConsoleDebugger {
                                 case ":eval" -> {
                                     var tmp = File.createTempFile("eval.", ".lj");
                                     try (var stream = new FileOutputStream(tmp)) {
-                                        stream.write(("module tmp_" + System.currentTimeMillis() + "_" + System.nanoTime() + "\nfun main|IO|>").getBytes());
+                                        stream.write(("module tmp_" + System.currentTimeMillis() + "\nfun main|IO|>").getBytes());
                                         stream.write(code.toString().getBytes());
                                         stream.write("<|\nend".getBytes());
                                     }

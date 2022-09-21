@@ -7,7 +7,9 @@ import org.antlr.v4.runtime.ConsoleErrorListener;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class Compiler {
     public final List<Expression.ModuleExpr> modules = new ArrayList<>();
@@ -37,24 +39,36 @@ public class Compiler {
     }
 
     public class Parser extends ru.DmN.lj.compiler.ljBaseListener {
+        public final Map<String, String> alias = new HashMap<>();
+
         @Override
         public void enterModule(ru.DmN.lj.compiler.ljParser.ModuleContext ctx) {
             var module = new Expression.ModuleExpr(ctx, ctx.LITERAL().getText());
             Compiler.this.modules.add(module);
             //
+            this.alias.put("this", module.name);
+            //
+            for (var a : ctx.alias())
+                this.alias.put(a.new_.getText(), a.old.getText());
+            //
             for (var variable : ctx.variable())
-                module.expressions.add(new Expression.VariableExpr(variable, module.name, variable.name.getText(), Expression.parseValue(variable.value())));
+                module.expressions.add(new Expression.VariableExpr(variable, module.name, variable.LITERAL().getText(), Expression.parseValue(this.alias, variable.value())));
             //
             for (var method : ctx.method()) {
                 if (method.name == null || method.desc == null)
                     throw new GrammaticalException(method);
                 var m = new Expression.MethodExpr(method, module.name, method.name.getText(), method.desc.getText());
                 module.expressions.add(m);
-                m.init(module, method);
+                m.init(this.alias, module, method);
             }
         }
 
-//        @Override
+        @Override
+        public void exitModule(ru.DmN.lj.compiler.ljParser.ModuleContext ctx) {
+            this.alias.clear();
+        }
+
+        //        @Override
 //        public void visitErrorNode(ErrorNode node) {
 //            throw new TokenException(node);
 //        }

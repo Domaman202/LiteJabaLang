@@ -4,6 +4,7 @@ import org.antlr.v4.runtime.ParserRuleContext;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class Expression {
     public final ParserRuleContext src;
@@ -40,32 +41,38 @@ public class Expression {
         NATIVE
     }
 
-    public static List<Expression> parseBody(ru.DmN.lj.compiler.ljParser.BodyContext body) throws GrammaticalException {
+    public static List<Expression> parseBody(Map<String, String> alias, ru.DmN.lj.compiler.ljParser.BodyContext body) throws GrammaticalException {
         var exprs = new ArrayList<Expression>();
         //
         for (var expr : body.any_expr()) {
             Expression parsed;
             //
             if (expr.push() != null)
-                parsed = new PushExpr(expr.push(), parseValue(expr.push().value()));
+                parsed = new PushExpr(expr.push(), parseValue(alias, expr.push().value()));
             else if (expr.call() != null) {
                 var call = expr.call();
                 var ref = call.method_ref();
                 if (ref == null || ref.module_ == null || ref.name == null || ref.desc == null)
                     throw new GrammaticalException(call);
-                parsed = new CallExpr(call, ref.module_.getText(), ref.name.getText(), ref.desc.getText());
+                var module = ref.module_.getText();
+                if (alias != null)
+                    module = alias.getOrDefault(module, module);
+                parsed = new CallExpr(call, module, ref.name.getText(), ref.desc.getText());
             } else if (expr.return_() != null) {
                 var ret = expr.return_();
-                parsed = new ReturnExpr(ret, parseValue(ret.value()));
+                parsed = new ReturnExpr(ret, parseValue(alias, ret.value()));
             } else if (expr.assign() != null) {
                 var ass = expr.assign();
                 var var = ass.var_ref();
                 if (var == null || var.module_ == null || var.name == null)
                     throw new GrammaticalException(ass);
-                parsed = new AssignExpr(ass, var.module_.getText(), var.name.getText(), parseValue(ass.value()));
+                var module = var.module_.getText();
+                if (alias != null)
+                    module = alias.getOrDefault(module, module);
+                parsed = new AssignExpr(ass, module, var.name.getText(), parseValue(alias, ass.value()));
             } else if (expr.variable() != null) {
                 var var = expr.variable();
-                parsed = new VariableExpr(var, ".", var.name.getText(), Expression.parseValue(var.value()));
+                parsed = new VariableExpr(var, ".", var.LITERAL().getText(), Expression.parseValue(alias, var.value()));
             } else if (expr.opcode() != null) {
                 var opcode = expr.opcode();
                 parsed = new OpcodeExpr(opcode, Opcode.valueOf(opcode.LITERAL().getText().toUpperCase()));
@@ -83,7 +90,7 @@ public class Expression {
             } else if (expr.try_() != null) {
                 var try_ = expr.try_();
                 exprs.add(new TryExpr(try_, try_.LITERAL().getText()));
-                exprs.addAll(parseBody(try_.body()));
+                exprs.addAll(parseBody(alias, try_.body()));
                 exprs.add(new OpcodeExpr(try_, Opcode.TRY_END));
                 continue;
             } else {
@@ -117,8 +124,8 @@ public class Expression {
             this.desc = desc;
         }
 
-        public void init(ModuleExpr module, ru.DmN.lj.compiler.ljParser.MethodContext ctx) throws GrammaticalException {
-            this.expressions = Expression.parseBody(ctx.body());
+        public void init(Map<String, String> alias, ModuleExpr module, ru.DmN.lj.compiler.ljParser.MethodContext ctx) throws GrammaticalException {
+            this.expressions = Expression.parseBody(alias, ctx.body());
         }
     }
 
@@ -278,7 +285,7 @@ public class Expression {
         }
     }
 
-    public static Expression parseValue(ru.DmN.lj.compiler.ljParser.ValueContext value) throws GrammaticalException {
+    public static Expression parseValue(Map<String, String> alias, ru.DmN.lj.compiler.ljParser.ValueContext value) throws GrammaticalException {
         if (value == null)
             return new ValueExpr(null, null);
         if (value.NULL() != null)
@@ -287,24 +294,22 @@ public class Expression {
             return new ValueExpr(value, Double.valueOf(value.NUM().getText()));
         if (value.STRING() != null)
             return new ValueExpr(value, value.STRING().getText());
-        if (value.var_ref() != null) {
-            var var = value.var_ref();
-            return new VariableExpr(value, var.module_.getText(), var.name.getText(), null);
-         }
+        if (value.var_ref() != null)
+            return parseVarRef(alias, value, value.var_ref());
         if (value.pop() != null)
             return new OpcodeExpr(value, Opcode.POP);
         if (value.logic_expr() != null)
-            return parseLogic(value, value.logic_expr());
+            return parseLogic(alias, value, value.logic_expr());
         if (value.math_expr() != null)
-            return parseMath(value, value.math_expr());
+            return parseMath(alias, value, value.math_expr());
         throw new GrammaticalException(value);
     }
 
-    public static Expression parseLogic(ParserRuleContext src, ru.DmN.lj.compiler.ljParser.Logic_exprContext logic) {
+    public static Expression parseLogic(Map<String, String> alias, ParserRuleContext src, ru.DmN.lj.compiler.ljParser.Logic_exprContext logic) {
         if (logic.BOOL() != null)
             return new ValueExpr(src, logic.BOOL().getText().equals("true"));
         if (logic.logic_expr().size() == 1)
-            return parseLogic(src, logic.logic_expr().get(0));
+            return parseLogic(alias, src, logic.logic_expr().get(0));
         var oper = switch (logic.oper.getText()) {
             case ">" -> LogicExpr.Operation.GREAT;
             case "<" -> LogicExpr.Operation.LESS;
@@ -315,15 +320,15 @@ public class Expression {
             default -> throw new IllegalStateException("Unexpected value: " + logic.oper.getText());
         };
         if (logic.logic_expr().size() == 2)
-            return new LogicExpr(src, oper, parseLogic(src, logic.logic_expr(0)), parseLogic(src, logic.logic_expr(1)));
-        return new LogicExpr(src, oper, parseMath(src, logic.math_expr(0)), parseMath(src, logic.math_expr(1)));
+            return new LogicExpr(src, oper, parseLogic(alias, src, logic.logic_expr(0)), parseLogic(alias, src, logic.logic_expr(1)));
+        return new LogicExpr(src, oper, parseMath(alias, src, logic.math_expr(0)), parseMath(alias, src, logic.math_expr(1)));
     }
 
-    public static Expression parseMath(ParserRuleContext src, ru.DmN.lj.compiler.ljParser.Math_exprContext math) {
+    public static Expression parseMath(Map<String, String> alias, ParserRuleContext src, ru.DmN.lj.compiler.ljParser.Math_exprContext math) {
         if (math.num_value() != null)
-            return parseNum(math.num_value());
+            return parseNum(alias, math.num_value());
         if (math.math_expr().size() == 1)
-            return parseMath(src, math.math_expr().get(0));
+            return parseMath(alias, src, math.math_expr().get(0));
         var oper = switch (math.oper.getText()) {
             case "*" -> MathExpr.Operation.MUL;
             case "/" -> MathExpr.Operation.DIV;
@@ -331,18 +336,23 @@ public class Expression {
             case "-" -> MathExpr.Operation.SUB;
             default -> throw new IllegalStateException("Unexpected value: " + math.oper.getText());
         };
-        return new MathExpr(src, oper, parseMath(src, math.math_expr(0)), parseMath(src, math.math_expr(1)));
+        return new MathExpr(src, oper, parseMath(alias, src, math.math_expr(0)), parseMath(alias, src, math.math_expr(1)));
     }
 
-    public static Expression parseNum(ru.DmN.lj.compiler.ljParser.Num_valueContext num) {
+    public static Expression parseNum(Map<String, String> alias, ru.DmN.lj.compiler.ljParser.Num_valueContext num) {
         if (num.NUM() != null)
             return new ValueExpr(num, Double.valueOf(num.NUM().getText()));
-        if (num.var_ref() != null) {
-            var var = num.var_ref();
-            return new VariableExpr(num, var.module_.getText(), var.name.getText(), null);
-        }
+        if (num.var_ref() != null)
+            return parseVarRef(alias, num, num.var_ref());
         if (num.pop() != null)
             return new OpcodeExpr(num, Opcode.POP);
         throw new GrammaticalException(num);
+    }
+
+    public static Expression parseVarRef(Map<String, String> alias, ParserRuleContext src, ru.DmN.lj.compiler.ljParser.Var_refContext var) {
+        var module = var.module_.getText();
+        if (alias != null)
+            module = alias.getOrDefault(module, module);
+        return new VariableExpr(var, module, var.name.getText(), null);
     }
 }

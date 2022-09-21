@@ -13,7 +13,7 @@ file
 //
 
 module
-    : 'module' LITERAL newline ((variable|method) newline)* 'end'
+    : 'module' LITERAL newline ((alias|variable|method) newline)* 'end'
     ;
 
 method
@@ -21,7 +21,13 @@ method
     ;
 
 variable
-    : 'var' name=LITERAL ('=' val=value)?
+    : 'var' LITERAL ('=' val=value)?
+    ;
+
+//
+
+alias
+    : 'alias' new=LITERAL '=' old=LITERAL
     ;
 
 //
