@@ -65,7 +65,7 @@ public class SimpleConsoleDebugger {
     public static void eval(String file, String module) throws IOException {
         if (load(file)) {
             try {
-                debugger.run(module, new String[0]);
+                System.out.println("Программа завершилась с кодом " + debugger.run(module, new String[0]) + "!");
             } catch (RuntimeException e) {
                 System.out.println(e.getMessage());
             }

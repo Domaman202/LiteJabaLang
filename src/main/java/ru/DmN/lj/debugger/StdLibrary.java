@@ -39,6 +39,15 @@ public class StdLibrary extends Module {
             var stack = contexts.peek().stack;
             stack.push(String.valueOf((double) stack.pop()));
         }));
+        // int <-> double
+        this.addMethod("convert", "ID", ((contexts, context) -> {
+            var stack = contexts.peek().stack;
+            stack.push((int) (double) stack.pop());
+        }));
+        this.addMethod("convert", "DI", ((contexts, context) -> {
+            var stack = contexts.peek().stack;
+            stack.push(((double) (int) stack.pop()));
+        }));
     }
 
     protected void addMethod(String name, String desc, Method.Native.NM method) {
