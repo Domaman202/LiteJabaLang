@@ -21,6 +21,7 @@ public class Main {
         // Добавляем обработчик "точки останова"
         debugger.breakPointListener = ((contexts, context) -> System.out.println("BreakPoint: " + context.method));
 
-        System.out.println(debugger.run(compiler.modules.get(0), args));
+        debugger.load(compiler.modules.get(0));
+        System.out.println(debugger.run("ru.DmN.TM", args));
     }
 }

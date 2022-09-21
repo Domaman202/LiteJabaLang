@@ -9,15 +9,18 @@ public class SimpleDebugger {
     public final List<Module> modules = new ArrayList<>();
     public BreakPointListener breakPointListener;
 
-    public int run(Expression.ModuleExpr m, String[] args) {
-        var module = this.parse(m);
-        this.modules.add(module);
-        var main = module.methods.stream().filter(method -> method.name.equals("main") && method.desc.equals("IO")).findFirst();
+    public int run(String module, String[] args) {
+        var m = this.findModule(module);
+        var main = m.methods.stream().filter(method -> method.name.equals("main") && method.desc.equals("IO")).findFirst();
         if (main.isPresent()) {
-            module.init(this);
-            return ((Number) this.run(module, main.get())).intValue();
+            m.init(this);
+            return ((Number) this.run(m, main.get())).intValue();
         }
         else throw new RuntimeException("Метод `main|IO` не найден");
+    }
+
+    public void load(Expression.ModuleExpr module) {
+        this.modules.add(this.parse(module));
     }
 
     public Object run(Module module, Method method, Object ... args) {
@@ -92,7 +95,7 @@ public class SimpleDebugger {
                         context.i++;
                         contexts.push(context);
                         var e = ((Expression.CallExpr) expr);
-                        context = new RunContext(this.modules.stream().filter(m -> m.name.equals(e.module)).findFirst().orElseThrow(() -> new RuntimeException("Модуль " + e.module + " не найден!")).methods.stream().filter(m -> m.name.equals(e.name) && m.desc.equals(e.desc)).findFirst().get());
+                        context = new RunContext(this.findModule(e.module).methods.stream().filter(m -> m.name.equals(e.name) && m.desc.equals(e.desc)).findFirst().orElseThrow(() -> new RuntimeException("Метод " + e.name + "|" + e.desc + " не найден!")));
                         context.i--;
                     }
                     case RETURN -> {
@@ -115,9 +118,10 @@ public class SimpleDebugger {
                     case ASSIGN -> {
                         var asg = (Expression.AssignExpr) expr;
                         var value = this.parseValue(context, asg.value);
-                        if (asg.module.equals("."))
+                        if (asg.module == null)
                             context.variables.put(asg.name, value);
-                        else this.modules.stream().filter(m -> m.name.equals(asg.module)).findFirst().orElseThrow(() -> new RuntimeException("Модуль `" + asg.module + "` не найден!")).variables.put(asg.name, value);
+                        else
+                            findModule(asg.module).variables.put(asg.name, value);
                     }
                     //
                     case TRY -> context.catch_.push(((Expression.TryExpr) expr).catch_);
@@ -140,6 +144,23 @@ public class SimpleDebugger {
         return ctx;
     }
 
+    public Module findModule(String fname) {
+        var nparts = fname.split("\\.");
+
+        Module module = null;
+        var modules = this.modules;
+        for (var name : nparts) {
+            module = modules.stream().filter(m -> m.name.equals(name)).findFirst().orElseThrow(() -> new RuntimeException("Модуль `" + name + "` не найден!"));
+            modules = module.sub;
+        }
+
+        return module;
+    }
+
+    public Module findModule(List<Module> modules, String name) {
+        return modules.stream().filter(m -> m.name.equals(name)).findFirst().orElseThrow(() -> new RuntimeException("Модуль `" + name + "` не найден!"));
+    }
+
     public void linit(RunContext context) {
         var method = context.method;
         for (int i = 0; i < method.expressions.size(); i++) {
@@ -150,18 +171,24 @@ public class SimpleDebugger {
         context.linit = true;
     }
 
-    public Module parse(Expression.ModuleExpr m) {
-        var module = new Module(m.name);
-        for (var expr : m.expressions) {
-            if (expr.type == Expression.Type.VARIABLE)
-                module.variables.put(((Expression.VariableExpr) expr).name, null);
-            else if (expr.type == Expression.Type.METHOD) {
-                var mt = (Expression.MethodExpr) expr;
-                var method = new Method(mt.name, mt.desc);
-                method.expressions.addAll(mt.expressions);
-                module.methods.add(method);
-            } else throw new RuntimeException("Лол");
+    public Module parse(Expression.ModuleExpr expr) {
+        var module = new Module(expr.name);
+        // submodules
+        expr.sub.forEach(m -> module.sub.add(parse(m)));
+        // body
+        for (var e : expr.expressions) {
+            switch (e.type) {
+                case VARIABLE -> module.variables.put(((Expression.VariableExpr) e).name, null);
+                case METHOD -> {
+                    var mt = (Expression.MethodExpr) e;
+                    var method = new Method(mt.name, mt.desc);
+                    method.expressions.addAll(mt.expressions);
+                    module.methods.add(method);
+                }
+                default -> throw new RuntimeException("Лол: " + expr.getClass());
+            }
         }
+        //
         return module;
     }
 
@@ -170,9 +197,9 @@ public class SimpleDebugger {
             case VALUE -> ((Expression.ValueExpr) expr).value;
             case VARIABLE -> {
                 var var = (Expression.VariableExpr) expr;
-                if (var.module.equals("."))
+                if (var.module == null)
                     yield context.variables.get(var.name);
-                else yield this.modules.stream().filter(m -> m.name.equals(var.module)).findFirst().orElseThrow(() -> new RuntimeException("Модуль `" + var.module + "` не найден!")).variables.get(var.name);
+                else yield this.findModule(var.module).variables.get(var.name);
             }
             case OPCODE -> {
                 if (((Expression.OpcodeExpr) expr).opcode == Opcode.POP)

@@ -13,7 +13,7 @@ file
 //
 
 module
-    : 'module' LITERAL newline ((alias|variable|method) newline)* 'end'
+    : 'module' module_ref newline ((alias|variable|method) newline)* 'end'
     ;
 
 method
@@ -27,7 +27,7 @@ variable
 //
 
 alias
-    : 'alias' new=LITERAL '=' old=LITERAL
+    : 'alias' new=module_ref '=' old=module_ref
     ;
 
 //
@@ -124,11 +124,15 @@ pop
     ;
 
 method_ref
-    : module_=LITERAL '$' name=LITERAL '|' desc=LITERAL
+    : module_ref '$' name=LITERAL '|' desc=LITERAL
     ;
 
 var_ref
-    : module_=('.'|LITERAL) '$' name=LITERAL
+    : (module_ref '$')? LITERAL
+    ;
+
+module_ref
+    : LITERAL ('.' LITERAL)*
     ;
 
 //

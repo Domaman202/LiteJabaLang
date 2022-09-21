@@ -11,8 +11,6 @@ import ru.DmN.lj.compiler.TokenException;
 
 import java.io.*;
 import java.util.BitSet;
-import java.util.List;
-import java.util.Scanner;
 
 public class SimpleConsoleDebugger {
     public static SimpleDebugger debugger;
@@ -34,9 +32,9 @@ public class SimpleConsoleDebugger {
                         else load(cmd[1]);
                     }
                     case "eval" -> {
-                        if (cmd.length < 2)
-                            System.out.println("Пожалуйста укажите имя файла!");
-                        else eval(cmd[1]);
+                        if (cmd.length < 3)
+                            System.out.println("Пожалуйста укажите `имя файла` и `имя исполняемого модуля`!");
+                        else eval(cmd[1], cmd[2]);
                     }
                     case "reset" -> resetDebugger();
                     case "exit" -> {
@@ -64,26 +62,24 @@ public class SimpleConsoleDebugger {
                 """);
     }
 
-    public static void eval(String file) throws IOException {
-        var modules = load(file);
-        if (modules != null) {
+    public static void eval(String file, String module) throws IOException {
+        if (load(file)) {
             try {
-                var mmodule = modules.get(0);
-                debugger.run(mmodule, mmodule.methods.stream().filter(method -> method.name.equals("main") && method.desc.equals("IO")).findFirst().orElseThrow(() -> new RuntimeException("Не удалось найти точку входа в модуле `" + mmodule + "`!")));
+                debugger.run(module, new String[0]);
             } catch (RuntimeException e) {
                 System.out.println(e.getMessage());
             }
         }
     }
 
-    public static List<Module> load(String file) throws IOException {
+    public static boolean load(String file) throws IOException {
         var compiler = compile(file);
         if (compiler == null)
-            return null;
-        var modules = compiler.modules.stream().map(module -> debugger.parse(module)).toList();
-        debugger.modules.addAll(modules);
+            return false;
+        var modules = compiler.modules;
+        modules.forEach(debugger::load);
         System.out.println("Из файла <" + file + "> загружены модули: " + modules);
-        return modules;
+        return true;
     }
 
     public static Compiler compile(String file) throws IOException {
@@ -148,13 +144,16 @@ public class SimpleConsoleDebugger {
                             switch (cmd[0]) {
                                 default -> code.append(in).append('\n');
                                 case ":eval" -> {
+                                    var module = "tmp_" + System.currentTimeMillis();
                                     var tmp = File.createTempFile("eval.", ".lj");
                                     try (var stream = new FileOutputStream(tmp)) {
-                                        stream.write(("module tmp_" + System.currentTimeMillis() + "\nfun main|IO|>").getBytes());
+                                        stream.write("module ".getBytes());
+                                        stream.write(module.getBytes());
+                                        stream.write("\nfun main|IO|>".getBytes());
                                         stream.write(code.toString().getBytes());
                                         stream.write("<|\nend".getBytes());
                                     }
-                                    eval(tmp.toString());
+                                    eval(tmp.toString(), module);
                                     code = new StringBuilder();
                                 }
                                 case ":exit" -> {

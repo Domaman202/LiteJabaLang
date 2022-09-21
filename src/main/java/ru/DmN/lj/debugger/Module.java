@@ -7,6 +7,7 @@ import java.util.Map;
 
 public class Module {
     public final String name;
+    public final List<Module> sub = new ArrayList<>();
     public final Map<String, Object> variables = new HashMap<>();
     public final List<Method> methods = new ArrayList<>();
     public boolean initialized = false;

@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 public class Expression {
-    public final ParserRuleContext src;
+    public ParserRuleContext src;
     public final Type type;
 
     public Expression(Type type, ParserRuleContext src) {
@@ -52,9 +52,9 @@ public class Expression {
             else if (expr.call() != null) {
                 var call = expr.call();
                 var ref = call.method_ref();
-                if (ref == null || ref.module_ == null || ref.name == null || ref.desc == null)
+                if (ref == null || ref.module_ref() == null || ref.name == null || ref.desc == null)
                     throw new GrammaticalException(call);
-                var module = ref.module_.getText();
+                var module = ref.module_ref().getText();
                 if (alias != null)
                     module = alias.getOrDefault(module, module);
                 parsed = new CallExpr(call, module, ref.name.getText(), ref.desc.getText());
@@ -64,12 +64,12 @@ public class Expression {
             } else if (expr.assign() != null) {
                 var ass = expr.assign();
                 var var = ass.var_ref();
-                if (var == null || var.module_ == null || var.name == null)
+                if (var == null || var.module_ref() == null || var.LITERAL() == null)
                     throw new GrammaticalException(ass);
-                var module = var.module_.getText();
+                var module = var.module_ref().getText();
                 if (alias != null)
                     module = alias.getOrDefault(module, module);
-                parsed = new AssignExpr(ass, module, var.name.getText(), parseValue(alias, ass.value()));
+                parsed = new AssignExpr(ass, module, var.LITERAL().getText(), parseValue(alias, ass.value()));
             } else if (expr.variable() != null) {
                 var var = expr.variable();
                 parsed = new VariableExpr(var, ".", var.LITERAL().getText(), Expression.parseValue(alias, var.value()));
@@ -105,11 +105,36 @@ public class Expression {
 
     public static class ModuleExpr extends Expression {
         public String name;
-        public List<Expression> expressions = new ArrayList<>();
+        public final List<ModuleExpr> sub = new ArrayList<>();
+        public final List<Expression> expressions = new ArrayList<>();
 
         public ModuleExpr(ParserRuleContext src, String name) {
             super(Type.MODULE, src);
             this.name = name;
+        }
+
+        public static ModuleExpr of(List<ModuleExpr> modules, ParserRuleContext src, String fname) {
+            var npart = fname.split("\\.");
+            var module = modules.stream().filter(m -> m.name.equals(npart[0])).findFirst().orElseGet(() -> {
+                var m = new ModuleExpr(null, npart[0]);
+                modules.add(m);
+                return m;
+            });
+            name:
+            for (int i = 1; i < npart.length; i++) {
+                var name = npart[i];
+                for (var m : module.sub) {
+                    if (m.name.equals(name)) {
+                        module = m;
+                        continue name;
+                    }
+                }
+                var n = new ModuleExpr(src, name);
+                module.sub.add(n);
+                module = n;
+            }
+            module.src = src;
+            return module;
         }
     }
 
@@ -350,9 +375,15 @@ public class Expression {
     }
 
     public static Expression parseVarRef(Map<String, String> alias, ParserRuleContext src, ru.DmN.lj.compiler.ljParser.Var_refContext var) {
-        var module = var.module_.getText();
-        if (alias != null)
-            module = alias.getOrDefault(module, module);
-        return new VariableExpr(var, module, var.name.getText(), null);
+        var module_ = var.module_ref();
+        String module;
+        if (module_ == null)
+            module = null;
+        else {
+            module = var.module_ref().getText();
+            if (alias != null)
+                module = alias.getOrDefault(module, module);
+        }
+        return new VariableExpr(var, module, var.LITERAL().getText(), null);
     }
 }

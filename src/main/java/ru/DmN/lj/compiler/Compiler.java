@@ -43,16 +43,16 @@ public class Compiler {
 
         @Override
         public void enterModule(ru.DmN.lj.compiler.ljParser.ModuleContext ctx) {
-            var module = new Expression.ModuleExpr(ctx, ctx.LITERAL().getText());
-            Compiler.this.modules.add(module);
+            var moduleName = ctx.module_ref().getText();
+            var module = Expression.ModuleExpr.of(Compiler.this.modules, ctx, moduleName);
             //
-            this.alias.put("this", module.name);
+            this.alias.put("this", moduleName);
             //
             for (var a : ctx.alias())
                 this.alias.put(a.new_.getText(), a.old.getText());
             //
             for (var variable : ctx.variable())
-                module.expressions.add(new Expression.VariableExpr(variable, module.name, variable.LITERAL().getText(), Expression.parseValue(this.alias, variable.value())));
+                module.expressions.add(new Expression.VariableExpr(variable, moduleName, variable.LITERAL().getText(), Expression.parseValue(this.alias, variable.value())));
             //
             for (var method : ctx.method()) {
                 if (method.name == null || method.desc == null)
@@ -67,11 +67,6 @@ public class Compiler {
         public void exitModule(ru.DmN.lj.compiler.ljParser.ModuleContext ctx) {
             this.alias.clear();
         }
-
-        //        @Override
-//        public void visitErrorNode(ErrorNode node) {
-//            throw new TokenException(node);
-//        }
     }
 
     public static class Translator {
