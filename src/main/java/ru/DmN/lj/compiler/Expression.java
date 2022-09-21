@@ -151,6 +151,8 @@ public class Expression {
 
         public void init(Map<String, String> alias, ModuleExpr module, ru.DmN.lj.compiler.ljParser.MethodContext ctx) throws GrammaticalException {
             this.expressions = Expression.parseBody(alias, ctx.body());
+            if (this.expressions.get(this.expressions.size() - 1).type != Type.RETURN && ctx.desc.getText().startsWith("V"))
+                this.expressions.add(new ReturnExpr(null, null));
         }
     }
 

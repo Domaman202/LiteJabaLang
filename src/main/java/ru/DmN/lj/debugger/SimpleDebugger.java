@@ -193,6 +193,8 @@ public class SimpleDebugger {
     }
 
     public Object parseValue(RunContext context, Expression expr) {
+        if (expr == null)
+            return null;
         return switch (expr.type) {
             case VALUE -> ((Expression.ValueExpr) expr).value;
             case VARIABLE -> {
