@@ -64,10 +64,10 @@ public class Expression {
             } else if (expr.assign() != null) {
                 var ass = expr.assign();
                 var var = ass.var_ref();
-                if (var == null || var.module_ref() == null || var.LITERAL() == null)
+                if (var == null || var.LITERAL() == null)
                     throw new GrammaticalException(ass);
-                var module = var.module_ref().getText();
-                if (alias != null)
+                String module = var.module_ref() == null ? null : var.module_ref().getText();
+                if (module != null && alias != null)
                     module = alias.getOrDefault(module, module);
                 parsed = new AssignExpr(ass, module, var.LITERAL().getText(), parseValue(alias, ass.value()));
             } else if (expr.variable() != null) {
