@@ -66,6 +66,11 @@ module ru.DmN.TM
         # Подбираем значение из стека в локальную переменную `result`
         var result = pop
 
+        # Помещаем в стек остаток от деления 25 на 10
+        push 25 % 10
+        # Вызываем функцию `println` с дескриптором `VO` модуля `std`
+        call std$println|VO # Вывод: 5
+
         # Точка останова
         opcode breakpoint
 

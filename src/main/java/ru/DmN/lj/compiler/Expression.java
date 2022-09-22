@@ -299,7 +299,8 @@ public class Expression {
             MUL,
             DIV,
             ADD,
-            SUB
+            SUB,
+            REM,
         }
     }
 
@@ -359,6 +360,7 @@ public class Expression {
         var oper = switch (math.oper.getText()) {
             case "*" -> MathExpr.Operation.MUL;
             case "/" -> MathExpr.Operation.DIV;
+            case "%" -> MathExpr.Operation.REM;
             case "+" -> MathExpr.Operation.ADD;
             case "-" -> MathExpr.Operation.SUB;
             default -> throw new IllegalStateException("Unexpected value: " + math.oper.getText());

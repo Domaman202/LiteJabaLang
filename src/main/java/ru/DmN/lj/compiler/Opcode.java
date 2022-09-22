@@ -9,6 +9,7 @@ public enum Opcode {
     ADD,
     MUL,
     DIV,
+    REM,
     NEG,
 
     GREAT,

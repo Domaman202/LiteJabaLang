@@ -61,6 +61,7 @@ public class SimpleDebugger {
                             case ADD -> stack.push((double) stack.pop() + (double) stack.pop());
                             case MUL -> stack.push((double) stack.pop() * (double) stack.pop());
                             case DIV -> stack.push((double) stack.pop() / (double) stack.pop());
+                            case REM -> stack.push((double) stack.pop() % (double) stack.pop());
                             case NEG -> stack.push(- (double) stack.pop());
                             //
                             case GREAT -> stack.push((double) stack.pop() > (double) stack.pop());
@@ -228,6 +229,7 @@ public class SimpleDebugger {
                 yield switch (math.operation) {
                     case MUL -> (double) left * (double) right;
                     case DIV -> (double) left / (double) right;
+                    case REM -> (double) left % (double) right;
                     case ADD -> (double) left + (double) right;
                     case SUB -> (double) left - (double) right;
                 };

@@ -89,7 +89,7 @@ push
 math_expr
     : num_value
     | '(' math_expr ')'
-    | left=math_expr oper=('*'|'/') math_expr
+    | left=math_expr oper=('*'|'/'|'%') math_expr
     | right=math_expr oper=('+'|'-') math_expr
     ;
 
