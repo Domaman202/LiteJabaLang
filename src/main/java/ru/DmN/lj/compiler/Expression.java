@@ -47,9 +47,13 @@ public class Expression {
         for (var expr : body.any_expr()) {
             Expression parsed;
             //
-            if (expr.push() != null)
-                parsed = new PushExpr(expr.push(), parseValue(alias, expr.push().value()));
-            else if (expr.call() != null) {
+            if (expr.push() != null) {
+//                parsed = new PushExpr(expr.push(), parseValue(alias, expr.push().value()));
+                var push = expr.push();
+                for (var value : push.value())
+                    exprs.add(new PushExpr(push, parseValue(alias, value)));
+                continue;
+            } else if (expr.call() != null) {
                 var call = expr.call();
                 var ref = call.method_ref();
                 if (ref == null || ref.module_ref() == null || ref.name == null || ref.desc == null)

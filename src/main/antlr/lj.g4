@@ -81,7 +81,7 @@ call
     ;
 
 push
-    : 'push' value
+    : 'push' value (',' value)*
     ;
 
 //

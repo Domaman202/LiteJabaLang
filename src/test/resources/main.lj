@@ -78,6 +78,15 @@ module ru.DmN.TM
         # Вызываем функцию `println` с дескриптором `VO` модуля `std`
         call std$println|VO # Вывод: 5
 
+        # Помещаем в стек значения: 2, 3, 4
+        push 2, 3, 4
+        # Складываем числа в стеке [3, 4] -> [7]
+        opcode add
+        # Умножаем числа в стеке [2, 7] -> [14]
+        opcode mul
+        # Вызываем функцию `println` с дескриптором `VO` модуля `std`
+        call std$println|VO # Вывод: 14
+
         # Точка останова
         opcode breakpoint
 
