@@ -1,4 +1,4 @@
-# Объявление модуля `TM`
+# Объявление модуля `ru.DmN.TM`
 module ru.DmN.TM
     # Псевдоним для модуля `TM`, определяется и действует в пределах текущего модуля
     alias this=ru.DmN.TM # Псевдоним `this` по умолчанию определяется как *имя текущего модуля*
@@ -104,6 +104,9 @@ module ru.DmN.TM
         # Вызываем функцию `foo` с дескриптором `V` текущего модуля
         call this$foo|V
 
+        # Вызываем функцию `test` с дескриптором `V` модуля `ru.DmN.TM.sub`
+        call ru.DmN.TM.sub$test|V
+
         # Возвращаем 0
         return 0
     <|
@@ -120,4 +123,16 @@ module ru.DmN.TM
         opcode breakpoint
     <|
 end
-# Конец объявления модуля `TM`
+# Конец объявления модуля `ru.DmN.TM`
+
+# Объявление модуля `ru.DmN.TM.sub`
+module ru.DmN.TM.sub
+    fun test|V
+    |>
+        # Помещаем в стек строку "Submodule function!"
+        push "Submodule function!"
+        # Вызываем функцию `println` с дескриптором `VO` модуля `std`
+        call std$println|VO # Вывод: Submodule function!
+    <|
+end
+# Конец объявления модуля `ru.DmN.TM.sub`
