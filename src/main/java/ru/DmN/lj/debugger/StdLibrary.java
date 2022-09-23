@@ -49,8 +49,4 @@ public class StdLibrary extends Module {
             stack.push(((double) (int) stack.pop()));
         }));
     }
-
-    protected void addMethod(String name, String desc, Method.Native.NM method) {
-        this.methods.add(new Method.Native(name, desc, method));
-    }
 }

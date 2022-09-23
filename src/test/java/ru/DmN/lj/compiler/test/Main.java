@@ -1,6 +1,7 @@
 package ru.DmN.lj.compiler.test;
 
 import ru.DmN.lj.compiler.Compiler;
+import ru.DmN.lj.debugger.DebugLibrary;
 import ru.DmN.lj.debugger.SimpleDebugger;
 import ru.DmN.lj.debugger.StdLibrary;
 
@@ -16,8 +17,9 @@ public class Main {
 
         // Создаём отладчик
         var debugger = new SimpleDebugger();
-        // Добавляем модуль "std"
+        // Добавляем стандартные модули
         debugger.modules.add(new StdLibrary(System.in, System.out));
+        debugger.modules.add(new DebugLibrary());
         // Добавляем обработчик "точки останова"
         debugger.breakPointListener = ((contexts, context) -> System.out.println("BreakPoint: " + context.method));
 

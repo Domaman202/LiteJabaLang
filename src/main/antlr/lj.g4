@@ -41,7 +41,8 @@ body
     ;
 
 any_expr
-    : variable
+    : '(' any_expr ')'
+    | variable
     | push
     | call
     | return
@@ -52,10 +53,24 @@ any_expr
     | try
     ;
 
+// array
+
+array
+    : '[' value? (',' value)* ']'
+    ;
+named_array
+    : '[' value ':' value (',' value ':' value)* ']'
+    ;
+
+array_access
+    : (var_ref|array|named_array) '[' value ']'
+    | array_access '[' value ']'
+    ;
+
 //
 
 assign
-    : var_ref '=' value
+    : (var_ref|array_access) '=' value
     ;
 
 //
@@ -106,6 +121,9 @@ value
     : NULL
     | NUM
     | STRING
+    | array_access
+    | array
+    | named_array
     | var_ref
     | method_ref
     | pop

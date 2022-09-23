@@ -87,8 +87,23 @@ module ru.DmN.TM
         # Вызываем функцию `println` с дескриптором `VO` модуля `std`
         call std$println|VO # Вывод: 14
 
-        # Точка останова
-        opcode breakpoint
+        # Простой массив
+        var simple_arr = [12, 21, 33, 202, 4]
+        # Мета-массив (ключ-элемент)
+        var named_arr = ["a": 12, "b": 21, result: 404]
+        
+        # Помещаем значение из мета-массива `named_arr` с индексом `result` в стек
+        push named_arr[result]
+        # Вызываем функцию `println` с дескриптором `VO` модуля `std`
+        call std$println|VO # Вывод: 404
+
+        # Присваиваем мета-массиву `named_arr` с индексом `result` значение из массива `simple_arr` под индексом `3`
+        named_arr[result] = simple_arr[3]
+        
+        # Помещаем значение из мета-массива `named_arr` с индексом `result` в стек
+        push named_arr[result]
+        # Вызываем функцию `println` с дескриптором `VO` модуля `std`
+        call std$println|VO # Вывод: 202
 
         # Блок try-catch, с указанием метки `catch` для отлавливания исключений
         try catch
@@ -116,6 +131,8 @@ module ru.DmN.TM
         # Вызываем функцию `test` с дескриптором `V` модуля `ru.DmN.TM.sub`
         call ru.DmN.TM.sub$test|V
 
+        call this$jtest|V
+
         # Возвращаем 0
         return 0
     <|
@@ -127,8 +144,19 @@ module ru.DmN.TM
         push "Foo!"
         # Вызываем функцию `println` с дескриптором `VO` модуля `std`
         call std$println|VO # Вывод: Foo!
+    <|
 
-        # Точка останова
+    # Отладка
+    fun jtest|V
+    |>
+        push 1
+        call debug$get_context|OI
+        var ctx = pop
+        ctx["variables"]["arr"] = [12]
+        push ctx["variables"]["arr"][0]
+        ctx["variables"]["arr"][0] = pop * 4
+        push arr[0]
+        call std$println|VO
         opcode breakpoint
     <|
 end

@@ -44,7 +44,7 @@ public class Compiler {
         @Override
         public void enterModule(ru.DmN.lj.compiler.ljParser.ModuleContext ctx) {
             var moduleName = ctx.module_ref().getText();
-            var module = Expression.ModuleExpr.of(Compiler.this.modules, ctx, moduleName);
+            var module = Expression.parseModule(Compiler.this.modules, ctx, moduleName);
             //
             this.alias.put("this", moduleName);
             //

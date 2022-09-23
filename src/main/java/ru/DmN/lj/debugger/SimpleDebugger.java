@@ -1,6 +1,7 @@
 package ru.DmN.lj.debugger;
 
 import ru.DmN.lj.compiler.Expression;
+import ru.DmN.lj.compiler.GrammaticalException;
 import ru.DmN.lj.compiler.Opcode;
 
 import java.util.*;
@@ -59,6 +60,7 @@ public class SimpleDebugger {
                             case DUP -> stack.push(stack.peek());
                             //
                             case ADD -> stack.push((double) stack.pop() + (double) stack.pop());
+                            case SUB -> stack.push((double) stack.pop() - (double) stack.pop());
                             case MUL -> stack.push((double) stack.pop() * (double) stack.pop());
                             case DIV -> stack.push((double) stack.pop() / (double) stack.pop());
                             case REM -> stack.push((double) stack.pop() % (double) stack.pop());
@@ -120,7 +122,9 @@ public class SimpleDebugger {
                         var asg = (Expression.AssignExpr) expr;
                         var value = this.parseValue(context, asg.value);
                         if (asg.module == null)
-                            context.variables.put(asg.name, value);
+                            if (asg.name == null)
+                                ((Map<Object, Object>) parseValue(context, asg.arr.arr0 == null ? (asg.arr.arr1 == null ? asg.arr.arr2 : asg.arr.arr1) : asg.arr.arr0)).put(this.parseValue(context, asg.arr.key), value);
+                            else context.variables.put(asg.name, value);
                         else
                             findModule(asg.module).variables.put(asg.name, value);
                     }
@@ -233,6 +237,18 @@ public class SimpleDebugger {
                     case ADD -> (double) left + (double) right;
                     case SUB -> (double) left - (double) right;
                 };
+            }
+            case ARRAY -> {
+                var value = ((Expression.ArrayExpr) expr).value;
+                var parsed = new HashMap<>();
+                for (var entry : value.entrySet())
+                    parsed.put(this.parseValue(context, entry.getKey()), this.parseValue(context, entry.getValue()));
+                yield parsed;
+            }
+            case ARRAY_ACCESS -> {
+                var aa = ((Expression.ArrayAccessExpr) expr);
+                var arr = aa.arr0 == null ? (aa.arr1 == null ? aa.arr2 : aa.arr1) : aa.arr0;
+                yield ((Map<Object, Object>) parseValue(context, arr)).get(parseValue(context, aa.key));
             }
             default -> throw new UnsupportedOperationException();
         };

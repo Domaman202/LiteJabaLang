@@ -124,6 +124,7 @@ public class SimpleConsoleDebugger {
     public static void resetDebugger() {
         debugger = new SimpleDebugger();
         debugger.modules.add(new StdLibrary(System.in, System.out));
+        debugger.modules.add(new DebugLibrary());
         debugger.breakPointListener = ((contexts, ctx) -> {
             System.out.println("Сработала точка останова [" + ctx.method.expressions.get(ctx.i).src.getStart().getLine() + "]");
 

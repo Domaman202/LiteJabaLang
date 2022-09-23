@@ -3,6 +3,7 @@ package ru.DmN.lj.compiler;
 import org.antlr.v4.runtime.ParserRuleContext;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -36,6 +37,9 @@ public class Expression {
         LOGIC,
         MATH,
 
+        ARRAY,
+        ARRAY_ACCESS,
+
         TRY,
 
         NATIVE
@@ -44,66 +48,77 @@ public class Expression {
     public static List<Expression> parseBody(Map<String, String> alias, ru.DmN.lj.compiler.ljParser.BodyContext body) throws GrammaticalException {
         var exprs = new ArrayList<Expression>();
         //
-        for (var expr : body.any_expr()) {
-            Expression parsed;
-            //
-            if (expr.push() != null) {
-//                parsed = new PushExpr(expr.push(), parseValue(alias, expr.push().value()));
-                var push = expr.push();
-                for (var value : push.value())
-                    exprs.add(new PushExpr(push, parseValue(alias, value)));
-                continue;
-            } else if (expr.call() != null) {
-                var call = expr.call();
-                var ref = call.method_ref();
-                if (ref == null || ref.module_ref() == null || ref.name == null || ref.desc == null)
-                    throw new GrammaticalException(call);
-                var module = ref.module_ref().getText();
-                if (alias != null)
-                    module = alias.getOrDefault(module, module);
-                parsed = new CallExpr(call, module, ref.name.getText(), ref.desc.getText());
-            } else if (expr.return_() != null) {
-                var ret = expr.return_();
-                parsed = new ReturnExpr(ret, parseValue(alias, ret.value()));
-            } else if (expr.assign() != null) {
-                var ass = expr.assign();
-                var var = ass.var_ref();
-                if (var == null || var.LITERAL() == null)
+        for (var expr : body.any_expr())
+            exprs.addAll(parseExpr(alias, expr));
+        //
+        return exprs;
+    }
+
+    public static List<Expression> parseExpr(Map<String, String> alias, ru.DmN.lj.compiler.ljParser.Any_exprContext expr) {
+        var exprs = new ArrayList<Expression>();
+        Expression parsed;
+        //
+        if (expr.any_expr() != null)
+            return parseExpr(alias, expr.any_expr());
+        else if (expr.push() != null) {
+            var push = expr.push();
+            for (var value : push.value())
+                exprs.add(new PushExpr(push, parseValue(alias, value)));
+            return exprs;
+        } else if (expr.call() != null) {
+            var call = expr.call();
+            var ref = call.method_ref();
+            if (ref == null || ref.module_ref() == null || ref.name == null || ref.desc == null)
+                throw new GrammaticalException(call);
+            var module = ref.module_ref().getText();
+            if (alias != null)
+                module = alias.getOrDefault(module, module);
+            parsed = new CallExpr(call, module, ref.name.getText(), ref.desc.getText());
+        } else if (expr.return_() != null) {
+            var ret = expr.return_();
+            parsed = new ReturnExpr(ret, parseValue(alias, ret.value()));
+        } else if (expr.assign() != null) {
+            var ass = expr.assign();
+            var var = ass.var_ref();
+            if (var == null) {
+                var arr = ass.array_access();
+                if (arr == null)
+                    throw new GrammaticalException(ass);
+                parsed = new AssignExpr(ass, parseArrayAccess(alias, ass, arr), parseValue(alias, ass.value()));
+            } else {
+                if (var.LITERAL() == null)
                     throw new GrammaticalException(ass);
                 String module = var.module_ref() == null ? null : var.module_ref().getText();
                 if (module != null && alias != null)
                     module = alias.getOrDefault(module, module);
                 parsed = new AssignExpr(ass, module, var.LITERAL().getText(), parseValue(alias, ass.value()));
-            } else if (expr.variable() != null) {
-                var var = expr.variable();
-                parsed = new VariableExpr(var, ".", var.LITERAL().getText(), Expression.parseValue(alias, var.value()));
-            } else if (expr.opcode() != null) {
-                var opcode = expr.opcode();
-                parsed = new OpcodeExpr(opcode, Opcode.valueOf(opcode.LITERAL().getText().toUpperCase()));
-            } else if (expr.label() != null) {
-                var label = expr.label();
-                if (label.LITERAL() == null)
-                    throw new GrammaticalException(label);
-                parsed = new LabelExpr(label, label.LITERAL().getText());
-            } else if (expr.jmp() != null) {
-                var jmp = expr.jmp();
-                var label = jmp.LITERAL();
-                if (label == null || jmp.type == null)
-                    throw new GrammaticalException(jmp);
-                parsed = new JmpExpr(jmp, jmp.type.getText().equals("jmp") ? Type.JMP : Type.CJMP, label.getText());
-            } else if (expr.try_() != null) {
-                var try_ = expr.try_();
-                exprs.add(new TryExpr(try_, try_.LITERAL().getText()));
-                exprs.addAll(parseBody(alias, try_.body()));
-                exprs.add(new OpcodeExpr(try_, Opcode.TRY_END));
-                continue;
-            } else {
-                throw new RuntimeException("todo:");
             }
-            //
-            exprs.add(parsed);
-        }
+        } else if (expr.variable() != null) {
+            var var = expr.variable();
+            parsed = new VariableExpr(var, ".", var.LITERAL().getText(), Expression.parseValue(alias, var.value()));
+        } else if (expr.opcode() != null) {
+            var opcode = expr.opcode();
+            parsed = new OpcodeExpr(opcode, Opcode.valueOf(opcode.LITERAL().getText().toUpperCase()));
+        } else if (expr.label() != null) {
+            var label = expr.label();
+            if (label.LITERAL() == null)
+                throw new GrammaticalException(label);
+            parsed = new LabelExpr(label, label.LITERAL().getText());
+        } else if (expr.jmp() != null) {
+            var jmp = expr.jmp();
+            var label = jmp.LITERAL();
+            if (label == null || jmp.type == null)
+                throw new GrammaticalException(jmp);
+            parsed = new JmpExpr(jmp, jmp.type.getText().equals("jmp") ? Type.JMP : Type.CJMP, label.getText());
+        } else if (expr.try_() != null) {
+            var try_ = expr.try_();
+            exprs.add(new TryExpr(try_, try_.LITERAL().getText()));
+            exprs.addAll(parseBody(alias, try_.body()));
+            exprs.add(new OpcodeExpr(try_, Opcode.TRY_END));
+            return exprs;
+        } else throw new RuntimeException("todo:");
         //
+        exprs.add(parsed);
         return exprs;
     }
 
@@ -115,30 +130,6 @@ public class Expression {
         public ModuleExpr(ParserRuleContext src, String name) {
             super(Type.MODULE, src);
             this.name = name;
-        }
-
-        public static ModuleExpr of(List<ModuleExpr> modules, ParserRuleContext src, String fname) {
-            var npart = fname.split("\\.");
-            var module = modules.stream().filter(m -> m.name.equals(npart[0])).findFirst().orElseGet(() -> {
-                var m = new ModuleExpr(null, npart[0]);
-                modules.add(m);
-                return m;
-            });
-            name:
-            for (int i = 1; i < npart.length; i++) {
-                var name = npart[i];
-                for (var m : module.sub) {
-                    if (m.name.equals(name)) {
-                        module = m;
-                        continue name;
-                    }
-                }
-                var n = new ModuleExpr(src, name);
-                module.sub.add(n);
-                module = n;
-            }
-            module.src = src;
-            return module;
         }
     }
 
@@ -200,15 +191,56 @@ public class Expression {
         }
     }
 
+    public static class ArrayAccessExpr extends Expression {
+        public VariableExpr arr0;
+        public ArrayExpr arr1;
+        public ArrayAccessExpr arr2;
+        public Expression key;
+
+        public ArrayAccessExpr(ParserRuleContext src, VariableExpr arr, Expression key) {
+            super(Type.ARRAY_ACCESS, src);
+            this.arr0 = arr;
+            this.key = key;
+        }
+
+        public ArrayAccessExpr(ParserRuleContext src, ArrayExpr arr, Expression key) {
+            super(Type.ARRAY_ACCESS, src);
+            this.arr1 = arr;
+            this.key = key;
+        }
+
+        public ArrayAccessExpr(ParserRuleContext src, ArrayAccessExpr arr, Expression key) {
+            super(Type.ARRAY_ACCESS, src);
+            this.arr2 = arr;
+            this.key = key;
+        }
+    }
+
+    public static class ArrayExpr extends Expression {
+        public Map<Expression, Expression> value;
+
+        public ArrayExpr(ParserRuleContext src, Map<Expression, Expression> value) {
+            super(Type.ARRAY, src);
+            this.value = value;
+        }
+    }
+
     public static class AssignExpr extends Expression {
         public String module;
         public String name;
+        public ArrayAccessExpr arr;
         public Expression value;
 
         public AssignExpr(ParserRuleContext src, String module, String name, Expression value) {
             super(Type.ASSIGN, src);
             this.module = module;
             this.name = name;
+            this.value = value;
+        }
+
+        public AssignExpr(ParserRuleContext src, ArrayAccessExpr arr, Expression value) {
+            super(Type.ASSIGN, src);
+            this.arr = arr;
             this.value = value;
         }
     }
@@ -324,8 +356,15 @@ public class Expression {
             return new ValueExpr(value, null);
         if (value.NUM() != null)
             return new ValueExpr(value, Double.valueOf(value.NUM().getText()));
-        if (value.STRING() != null)
-            return new ValueExpr(value, value.STRING().getText());
+        if (value.STRING() != null) {
+            var str = value.STRING().getText();
+            return new ValueExpr(value, str.substring(1, str.length() - 1));
+        } if (value.array_access() != null)
+            return parseArrayAccess(alias, value, value.array_access());
+        if (value.array() != null)
+            return parseArray(alias, value, value.array(), null);
+        if (value.named_array() != null)
+            return parseArray(alias, value, null, value.named_array());
         if (value.var_ref() != null)
             return parseVarRef(alias, value, value.var_ref());
         if (value.pop() != null)
@@ -382,7 +421,7 @@ public class Expression {
         throw new GrammaticalException(num);
     }
 
-    public static Expression parseVarRef(Map<String, String> alias, ParserRuleContext src, ru.DmN.lj.compiler.ljParser.Var_refContext var) {
+    public static VariableExpr parseVarRef(Map<String, String> alias, ParserRuleContext src, ru.DmN.lj.compiler.ljParser.Var_refContext var) {
         var module_ = var.module_ref();
         String module;
         if (module_ == null)
@@ -393,5 +432,52 @@ public class Expression {
                 module = alias.getOrDefault(module, module);
         }
         return new VariableExpr(var, module, var.LITERAL().getText(), null);
+    }
+
+    public static ArrayAccessExpr parseArrayAccess(Map<String, String> alias, ParserRuleContext src, ru.DmN.lj.compiler.ljParser.Array_accessContext ctx) {
+        var val = parseValue(alias, ctx.value());
+        if (ctx.var_ref() != null)
+            return new ArrayAccessExpr(src, parseVarRef(alias, src, ctx.var_ref()), val);
+        if (ctx.array_access() != null)
+            return new ArrayAccessExpr(src, parseArrayAccess(alias, src, ctx.array_access()), val);
+        return new ArrayAccessExpr(src, parseArray(alias, src, ctx.array(), ctx.named_array()), val);
+    }
+
+    public static ArrayExpr parseArray(Map<String, String> alias, ParserRuleContext src, ru.DmN.lj.compiler.ljParser.ArrayContext arr, ru.DmN.lj.compiler.ljParser.Named_arrayContext narr) {
+        if (arr != null) {
+            var v = new HashMap<Expression, Expression>();
+            for (var i = 0; i < arr.value().size(); i++)
+                v.put(new ValueExpr(src, (double) i), parseValue(alias, arr.value(i)));
+            return new ArrayExpr(src, v);
+        } else if (narr == null)
+            throw new GrammaticalException(src);
+        var v = new HashMap<Expression, Expression>();
+        for (var i = 0; i < narr.value().size(); i++)
+            v.put(parseValue(alias, narr.value(i++)), parseValue(alias, narr.value(i)));
+        return new ArrayExpr(src, v);
+    }
+
+    public static ModuleExpr parseModule(List<ModuleExpr> modules, ParserRuleContext src, String fname) {
+        var npart = fname.split("\\.");
+        var module = modules.stream().filter(m -> m.name.equals(npart[0])).findFirst().orElseGet(() -> {
+            var m = new ModuleExpr(null, npart[0]);
+            modules.add(m);
+            return m;
+        });
+        name:
+        for (var i = 1; i < npart.length; i++) {
+            var name = npart[i];
+            for (var m : module.sub) {
+                if (m.name.equals(name)) {
+                    module = m;
+                    continue name;
+                }
+            }
+            var n = new ModuleExpr(src, name);
+            module.sub.add(n);
+            module = n;
+        }
+        module.src = src;
+        return module;
     }
 }

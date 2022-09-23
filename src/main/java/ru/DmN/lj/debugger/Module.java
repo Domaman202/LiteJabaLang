@@ -21,6 +21,10 @@ public class Module {
         init.ifPresent(method -> debugger.run(this, method));
     }
 
+    protected void addMethod(String name, String desc, Method.Native.NM method) {
+        this.methods.add(new Method.Native(name, desc, method));
+    }
+
     @Override
     public String toString() {
         return "[" + name + "]";

@@ -7,6 +7,7 @@ public enum Opcode {
     DUP,
 
     ADD,
+    SUB,
     MUL,
     DIV,
     REM,
